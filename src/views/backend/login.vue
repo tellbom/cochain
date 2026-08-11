@@ -1,7 +1,7 @@
 <template>
     <main class="login-page" aria-labelledby="login-title">
         <section class="login-panel" aria-live="polite">
-            <div class="brand-mark" aria-hidden="true">C</div>
+            <img class="brand-mark" src="/icon.png" alt="Cochain" />
             <p class="brand-name">COCHAIN</p>
 
             <div class="status-icon" :class="state" aria-hidden="true">
@@ -101,16 +101,12 @@ async function handleLogout() {
 }
 
 .brand-mark {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
+    display: block;
+    width: 72px;
+    height: 72px;
     margin: 0 auto 10px;
-    border-radius: 12px;
-    background: #0066cc;
-    color: #ffffff;
-    font-size: 22px;
-    font-weight: 700;
+    border-radius: 18px;
+    object-fit: contain;
 }
 
 .brand-name {

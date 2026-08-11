@@ -1,6 +1,6 @@
 <template>
     <div class="layout-logo">
-        <div class="brand-mark" aria-hidden="true">C</div>
+        <img class="brand-mark" src="/icon.png" alt="Cochain" />
         <div v-if="!config.layout.menuCollapse" :style="{ color: config.getColorVal('menuColor') }" class="website-name">
             <strong>Cochain</strong>
             <span>采购协同平台</span>
@@ -55,21 +55,11 @@ const onMenuCollapse = function () {
     background: v-bind('config.getColorVal("menuTopBarBackground")');
 }
 .brand-mark {
-    display: grid;
-    place-items: center;
     width: 34px;
     height: 34px;
     flex: 0 0 34px;
-    border-radius: 50%;
-    background: var(--co-primary);
-    color: white;
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-}
-.logo-img {
-    width: 28px;
-    flex-shrink: 0;
+    border-radius: 9px;
+    object-fit: contain;
 }
 .website-name {
     display: flex;
