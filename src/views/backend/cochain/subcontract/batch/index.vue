@@ -5,9 +5,11 @@
         description="从数据就绪到分包、推荐和导出的五阶段工作台。动作可用性同时受批次状态与 RBAC 按钮规则约束。"
     >
         <template #actions>
-            <el-button v-auth="'upload'" type="primary" @click="openUpload">上传分包数据</el-button>
-            <el-button v-auth="'fetch'" @click="state.fetchVisible = true">抓取数据</el-button>
-            <el-button v-auth="'save'" @click="openCreate">新建批次</el-button>
+            <el-button v-auth="'save'" @click="openCreate"><Icon name="fa fa-plus" aria-hidden="true" />新建批次</el-button>
+            <el-button v-auth="'fetch'" plain type="primary" @click="state.fetchVisible = true"
+                ><Icon name="fa fa-cloud-download" aria-hidden="true" />从全流程系统抓取</el-button
+            >
+            <el-button v-auth="'upload'" type="primary" @click="openUpload"><Icon name="fa fa-upload" aria-hidden="true" />上传 Excel</el-button>
         </template>
 
         <DataSurface label="分包流程">
@@ -24,12 +26,14 @@
 
         <DataSurface label="批次列表">
             <form class="batch-toolbar" role="search" @submit.prevent="load">
-                <el-input v-model="query.keyword" clearable placeholder="搜索批次编号、流程编号或操作人" aria-label="批次关键词" />
+                <el-input v-model="query.keyword" clearable placeholder="搜索批次编号、流程编号或操作人" aria-label="批次关键词">
+                    <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
+                </el-input>
                 <el-select v-model="query.batchStatus" clearable placeholder="全部状态" aria-label="批次状态">
                     <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
                 <el-button native-type="submit" type="primary">查询</el-button>
-                <el-button @click="resetQuery">重置</el-button>
+                <el-button @click="resetQuery"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
             </form>
 
             <el-table v-loading="state.loading" :data="state.rows" row-key="id" table-layout="auto">
@@ -347,6 +351,7 @@ onMounted(load)
     display: grid;
     grid-template-columns: repeat(5, minmax(150px, 1fr));
     overflow-x: auto;
+    padding: 4px 8px;
 }
 .workflow-step {
     position: relative;
@@ -354,18 +359,26 @@ onMounted(load)
     align-items: center;
     gap: 12px;
     min-width: 150px;
-    padding: 20px;
-    border-right: 1px solid var(--co-divider);
+    padding: 16px 12px;
 }
-.workflow-step:last-child {
-    border-right: 0;
+.workflow-step:not(:last-child)::after {
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    right: -8px;
+    width: 16px;
+    height: 1px;
+    background: var(--co-hairline);
+    content: '';
 }
 .workflow-step__index {
+    position: relative;
+    z-index: 1;
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
     border-radius: 50%;
     background: var(--co-primary-soft);
     color: var(--co-primary);
@@ -388,7 +401,7 @@ onMounted(load)
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--co-divider);
 }
 .batch-toolbar .el-input {
@@ -413,12 +426,22 @@ onMounted(load)
     margin-top: 18px;
 }
 :deep(.el-table th.el-table__cell) {
-    background: var(--co-surface);
-    color: var(--co-ink-secondary);
+    height: 44px;
+    background: #fafafa;
+    color: var(--co-ink-muted);
+    font-size: 12px;
     font-weight: 600;
 }
-:deep(.el-button--primary:not(.is-link)) {
-    border-radius: var(--co-radius-pill);
+:deep(.el-table) {
+    --el-table-row-hover-bg-color: #fafafa;
+}
+:deep(.el-table td.el-table__cell) {
+    height: 50px;
+    color: var(--co-ink-secondary);
+    font-size: 13px;
+}
+:deep(.el-table__inner-wrapper::before) {
+    display: none;
 }
 @media (max-width: 768px) {
     .batch-toolbar {

@@ -22,7 +22,7 @@ const headingId = computed(() => `co-page-${props.title.replace(/\s+/g, '-')}`)
 <style scoped lang="scss">
 .co-page {
     display: grid;
-    gap: var(--co-space-5);
+    gap: 20px;
     width: min(100%, 1440px);
     margin: 0 auto;
     color: var(--co-ink);
@@ -31,29 +31,29 @@ const headingId = computed(() => `co-page-${props.title.replace(/\s+/g, '-')}`)
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: var(--co-space-5);
+    gap: var(--co-space-4);
+    min-height: 64px;
 }
 h1 {
     margin: 0;
-    font-size: clamp(28px, 3vw, 34px);
+    font-size: 24px;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.2;
     letter-spacing: -0.02em;
 }
 .co-page__eyebrow {
-    margin: 0 0 var(--co-space-2);
+    margin: 0 0 2px;
     color: var(--co-primary);
     font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 500;
+    line-height: 1.5;
 }
 .co-page__description {
     max-width: 720px;
-    margin: var(--co-space-2) 0 0;
+    margin: 4px 0 0;
     color: var(--co-ink-muted);
-    font-size: 15px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.55;
 }
 .co-page__actions {
     display: flex;
@@ -69,6 +69,9 @@ h1 {
     .co-page__actions {
         justify-content: flex-start;
         width: 100%;
+    }
+    h1 {
+        font-size: 22px;
     }
 }
 </style>

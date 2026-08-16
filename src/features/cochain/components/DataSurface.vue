@@ -12,7 +12,7 @@ withDefaults(defineProps<{ label?: string }>(), { label: '数据区域' })
 .data-surface {
     overflow: hidden;
     border: 1px solid var(--co-hairline);
-    border-radius: var(--co-radius-container);
+    border-radius: var(--co-radius-card);
     background: var(--co-canvas);
 }
 </style>

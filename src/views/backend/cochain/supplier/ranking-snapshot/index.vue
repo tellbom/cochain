@@ -11,7 +11,11 @@
             :allow-edit="false"
             :allow-delete="false"
         >
-            <template #actions><el-button v-auth="'generate'" type="primary" @click="visible = true">生成快照</el-button></template>
+            <template #actions
+                ><el-button v-auth="'generate'" type="primary" @click="visible = true"
+                    ><Icon name="fa fa-refresh" aria-hidden="true" />生成快照</el-button
+                ></template
+            >
         </ManagedResourcePage>
         <el-dialog v-model="visible" title="生成排名快照" width="min(460px,94vw)"
             ><el-form label-position="top"

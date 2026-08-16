@@ -15,19 +15,20 @@ defineEmits<{ action: [] }>()
     display: grid;
     justify-items: center;
     gap: 8px;
-    padding: 64px 24px;
+    min-height: 240px;
+    padding: 56px 24px;
     color: var(--co-ink-muted);
     text-align: center;
 }
 .data-state strong {
     color: var(--co-ink);
-    font-size: 17px;
+    font-size: 14px;
     font-weight: 600;
 }
 .data-state p {
     max-width: 460px;
     margin: 0;
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.5;
 }
 </style>

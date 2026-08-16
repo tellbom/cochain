@@ -2,13 +2,14 @@
     <CochainPage :title="title" :description="description" :eyebrow="eyebrow">
         <template #actions><slot name="actions" :reload="load" /></template>
 
-        <DataSurface>
+        <DataSurface :label="`${title}数据列表`">
             <form class="table-toolbar" role="search" @submit.prevent="onSearch">
-                <el-input v-model="keyword" clearable :placeholder="searchPlaceholder" aria-label="关键词" @clear="onSearch">
+                <label class="table-toolbar__label" for="resource-keyword">关键词</label>
+                <el-input id="resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="onSearch">
                     <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
                 </el-input>
                 <el-button type="primary" native-type="submit">查询</el-button>
-                <el-button @click="onReset">重置</el-button>
+                <el-button @click="onReset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
                 <span class="table-toolbar__total">共 {{ state.total }} 条</span>
             </form>
 
@@ -151,7 +152,7 @@ const openDetail = (row: BaseEntity) => {
     state.detailVisible = true
 }
 const formatCell = (row: BaseEntity, column: DataColumn) =>
-    column.format ? column.format(row as Record<string, any>) : String((row as Record<string, any>)[column.prop] ?? '—')
+    column.format ? column.format(row as Record<string, any>) : String((row as Record<string, any>)[column.prop] ?? '-')
 const getTone = (row: BaseEntity, column: DataColumn) => (column.tone ? column.tone(row as Record<string, any>) : 'neutral')
 
 onMounted(load)
@@ -183,15 +184,37 @@ defineExpose({ reload: load })
 }
 :deep(.el-table) {
     width: 100%;
+    --el-table-row-hover-bg-color: #fafafa;
 }
 :deep(.el-table th.el-table__cell) {
-    height: 48px;
-    background: var(--co-surface);
-    color: var(--co-ink-secondary);
+    height: 44px;
+    background: #fafafa;
+    color: var(--co-ink-muted);
+    font-size: 12px;
     font-weight: 600;
 }
 :deep(.el-table td.el-table__cell) {
-    height: 52px;
+    height: 50px;
+    color: var(--co-ink-secondary);
+    font-size: 13px;
+}
+:deep(.el-table__inner-wrapper::before) {
+    display: none;
+}
+:deep(.el-button) {
+    min-height: 36px;
+}
+:deep(.el-button.is-link) {
+    min-height: auto;
+}
+.table-toolbar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
 }
 @media (max-width: 768px) {
     .table-toolbar {

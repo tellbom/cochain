@@ -11,8 +11,10 @@
             :fields="fields"
         >
             <template #actions
-                ><el-button @click="templatePlaceholder">模板下载待绑定</el-button
-                ><el-button v-auth="'upload'" type="primary" @click="visible = true">上传绩效</el-button></template
+                ><el-button @click="templatePlaceholder"><Icon name="fa fa-download" aria-hidden="true" />模板下载待绑定</el-button
+                ><el-button v-auth="'upload'" type="primary" @click="visible = true"
+                    ><Icon name="fa fa-upload" aria-hidden="true" />上传绩效</el-button
+                ></template
             >
         </ManagedResourcePage>
         <el-dialog v-model="visible" title="上传供应商绩效" width="min(600px,94vw)"
@@ -96,7 +98,37 @@ const templatePlaceholder = () => ElMessage.info('待绑定：需由后端确认
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
+.supplier-performance-page :deep(.managed-toolbar) {
+    padding: 20px;
+}
+.supplier-performance-page :deep(.managed-toolbar::before) {
+    align-self: center;
+    margin-right: 4px;
+    color: var(--co-ink-muted);
+    font-size: 12px;
+    font-weight: 500;
+    content: '绩效检索';
+}
+.supplier-performance-page :deep(.el-upload-dragger) {
+    min-height: 152px;
+    border-color: var(--co-hairline);
+    border-radius: 10px;
+    background: var(--co-canvas);
+    transition:
+        border-color var(--co-motion-fast) ease,
+        background-color var(--co-motion-fast) ease;
+}
+.supplier-performance-page :deep(.el-upload-dragger:hover),
+.supplier-performance-page :deep(.el-upload-dragger:focus-visible) {
+    border-color: var(--co-primary);
+    background: #f5f9ff;
+}
 .result-table {
     margin-top: 16px;
+}
+@media (max-width: 768px) {
+    .period {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

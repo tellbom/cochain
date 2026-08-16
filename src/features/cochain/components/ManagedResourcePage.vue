@@ -2,19 +2,26 @@
     <CochainPage :title="title" :description="description" :eyebrow="eyebrow">
         <template #actions>
             <slot name="actions" :reload="load" />
-            <el-button v-if="allowCreate" v-auth="'save'" type="primary" @click="openCreate">新建</el-button>
+            <el-button v-if="allowCreate" v-auth="'save'" type="primary" @click="openCreate"
+                ><Icon name="fa fa-plus" aria-hidden="true" />新建</el-button
+            >
         </template>
 
-        <DataSurface>
+        <DataSurface :label="`${title}数据列表`">
             <form class="managed-toolbar" role="search" @submit.prevent="search">
-                <el-input v-model="keyword" clearable :placeholder="searchPlaceholder" aria-label="关键词" @clear="search" />
+                <label class="managed-toolbar__label" for="managed-resource-keyword">关键词</label>
+                <el-input id="managed-resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="search">
+                    <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
+                </el-input>
                 <el-button native-type="submit" type="primary">查询</el-button>
-                <el-button @click="reset">重置</el-button>
+                <el-button @click="reset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
                 <el-button v-if="allowDelete && state.selection.length" v-auth="'delete'" type="danger" plain @click="removeSelected"
                     >批量删除（{{ state.selection.length }}）</el-button
                 >
                 <span>共 {{ state.total }} 条</span>
             </form>
+
+            <el-alert v-if="state.error" :title="state.error" type="error" show-icon :closable="false" />
 
             <el-table v-loading="state.loading" :data="state.rows" row-key="id" table-layout="auto" @selection-change="state.selection = $event">
                 <el-table-column v-if="allowDelete" type="selection" width="48" />
@@ -41,7 +48,14 @@
                         <el-button v-if="allowDelete" v-auth="'delete'" link type="danger" @click="remove(scope.row)">删除</el-button>
                     </template>
                 </el-table-column>
-                <template #empty><DataState title="暂无数据" description="调整筛选条件，或新建第一条记录。" /></template>
+                <template #empty
+                    ><DataState
+                        :title="state.error ? '数据加载失败' : '暂无数据'"
+                        :description="state.error ? '请检查网络或稍后重试。' : '调整筛选条件，或新建第一条记录。'"
+                        :action-label="state.error ? '重新加载' : undefined"
+                        :icon="state.error ? 'fa fa-exclamation-circle' : 'fa fa-inbox'"
+                        @action="load"
+                /></template>
             </el-table>
 
             <footer class="managed-pagination">
@@ -139,6 +153,7 @@ const state = reactive({
     loading: false,
     saving: false,
     rows: [] as BaseEntity[],
+    error: '',
     selection: [] as BaseEntity[],
     total: 0,
     pageNum: 1,
@@ -151,6 +166,7 @@ const form = reactive<Record<string, any>>({})
 
 const load = async () => {
     state.loading = true
+    state.error = ''
     try {
         const result = await service.page({ keyword: keyword.value, pageNum: state.pageNum, pageSize: state.pageSize })
         state.rows = result.records
@@ -158,7 +174,8 @@ const load = async () => {
     } catch (error: any) {
         state.rows = []
         state.total = 0
-        ElMessage.error(error?.message || '数据加载失败')
+        state.error = error?.message || '数据加载失败'
+        ElMessage.error(state.error)
     } finally {
         state.loading = false
     }
@@ -235,7 +252,7 @@ const removeSelected = async () => {
     load()
 }
 const displayValue = (row: BaseEntity, column: DataColumn) =>
-    column.format ? column.format(row as Record<string, any>) : String((row as Record<string, any>)[column.prop] ?? '—')
+    column.format ? column.format(row as Record<string, any>) : String((row as Record<string, any>)[column.prop] ?? '-')
 onMounted(load)
 defineExpose({ reload: load, openCreate })
 </script>
@@ -264,12 +281,37 @@ defineExpose({ reload: load, openCreate })
     border-top: 1px solid var(--co-divider);
 }
 :deep(.el-table th.el-table__cell) {
-    background: var(--co-surface);
-    color: var(--co-ink-secondary);
+    height: 44px;
+    background: #fafafa;
+    color: var(--co-ink-muted);
+    font-size: 12px;
     font-weight: 600;
 }
-:deep(.el-button--primary:not(.is-link)) {
-    border-radius: var(--co-radius-pill);
+:deep(.el-table) {
+    --el-table-row-hover-bg-color: #fafafa;
+}
+:deep(.el-table td.el-table__cell) {
+    height: 50px;
+    color: var(--co-ink-secondary);
+    font-size: 13px;
+}
+:deep(.el-table__inner-wrapper::before) {
+    display: none;
+}
+:deep(.el-button) {
+    min-height: 36px;
+}
+:deep(.el-button.is-link) {
+    min-height: auto;
+}
+.managed-toolbar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
 }
 @media (max-width: 768px) {
     .managed-toolbar {

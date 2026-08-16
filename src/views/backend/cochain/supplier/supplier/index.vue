@@ -9,7 +9,9 @@
             :columns="columns"
             :fields="fields"
             :before-save="beforeSave"
-            ><template #actions><el-button @click="placeholder">导入/导出待绑定</el-button></template></ManagedResourcePage
+            ><template #actions
+                ><el-button @click="placeholder"><Icon name="fa fa-exchange" aria-hidden="true" />导入/导出待绑定</el-button></template
+            ></ManagedResourcePage
         >
     </div>
 </template>
@@ -45,3 +47,17 @@ const beforeSave = async (form: Record<string, any>, original: any) => {
 }
 const placeholder = () => ElMessage.info('待绑定：业务接口文档未定义供应商导入/导出端点。')
 </script>
+
+<style scoped>
+.supplier-management-page :deep(.managed-toolbar) {
+    padding: 20px;
+}
+.supplier-management-page :deep(.managed-toolbar::before) {
+    align-self: center;
+    margin-right: 4px;
+    color: var(--co-ink-muted);
+    font-size: 12px;
+    font-weight: 500;
+    content: '供应商检索';
+}
+</style>
