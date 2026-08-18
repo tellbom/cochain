@@ -93,7 +93,7 @@ export const onClickMenu = (menu: RouteRecordRaw) => {
 export const handleAdminRoute = (routes: any) => {
     const viewsComponent = {
         ...import.meta.glob('/src/views/backend/cochain/**/*.vue'),
-        ...import.meta.glob('/src/views/backend/auth/**/*.vue'),
+        ...import.meta.glob(['/src/views/backend/auth/**/*.vue', '!/src/views/backend/auth/adminLog/**/*.vue']),
     }
     addRouteAll(viewsComponent, routes, adminBaseRoute.name as string)
     const menuAdminBaseRoute = (adminBaseRoute.path as string) + '/'

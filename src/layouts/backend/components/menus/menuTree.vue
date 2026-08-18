@@ -9,6 +9,7 @@
         <template v-if="menu.children && menu.children.length > 0">
             <el-sub-menu popper-class="ba-menu-popup" @click="onClickSubMenu(menu)" :index="menu.path" :key="menu.path">
                 <template #title>
+                    <el-icon class="menu-icon"><component :is="menuIcon(menu)" /></el-icon>
                     <span class="menu-title">{{ menu.meta?.title ? menu.meta?.title : $t('noTitle') }}</span>
                 </template>
                 <menu-tree :extends="{ ...props.extends, level: props.extends.level + 1 }" :menus="menu.children"></menu-tree>
@@ -16,6 +17,7 @@
         </template>
         <template v-else>
             <el-menu-item :index="menu.path" :key="menu.path" @click="onClickMenu(menu)">
+                <el-icon class="menu-icon"><component :is="menuIcon(menu)" /></el-icon>
                 <span class="menu-title">{{ menu.meta?.title ? menu.meta?.title : $t('noTitle') }}</span>
             </el-menu-item>
         </template>
@@ -27,6 +29,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { getFirstRoute, onClickMenu } from '/@/utils/router'
 import { ElNotification } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { Box, DataAnalysis, Document, Grid, Lock, Setting, TrendCharts, User } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 interface Props {
@@ -44,6 +47,18 @@ const props = withDefaults(defineProps<Props>(), {
         }
     },
 })
+
+const menuIcon = (menu: RouteRecordRaw) => {
+    const key = `${String(menu.meta?.title || '')} ${menu.path}`
+    if (/分包|batch|package/.test(key)) return Box
+    if (/品类供方|category/.test(key)) return DataAnalysis
+    if (/绩效|排名|performance|ranking/.test(key)) return TrendCharts
+    if (/规则|主数据|config|rule/.test(key)) return Setting
+    if (/日志|log/.test(key)) return Document
+    if (/供应商|supplier/.test(key)) return User
+    if (/权限|auth/.test(key)) return Lock
+    return Grid
+}
 
 const onClickSubMenu = (menu: RouteRecordRaw) => {
     if (props.extends?.position == 'horizontal' && props.extends.level <= 1 && menu.children?.length) {
@@ -80,10 +95,15 @@ const onClickSubMenu = (menu: RouteRecordRaw) => {
         BlinkMacSystemFont,
         'Segoe UI',
         sans-serif;
-    font-size: 14px;
-    font-weight: 400;
+    font-size: 13px;
+    font-weight: 500;
     letter-spacing: 0;
     line-height: 1.29;
+}
+.menu-icon {
+    width: 18px;
+    margin-right: 12px;
+    font-size: 16px;
 }
 
 /* icon 对齐（保留以防后续开启图标） */

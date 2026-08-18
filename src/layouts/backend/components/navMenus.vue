@@ -1,12 +1,12 @@
 <template>
     <el-dropdown placement="bottom-end" trigger="click">
         <button class="account-trigger" type="button" aria-label="打开用户菜单">
-            <el-avatar :size="32">{{ initials }}</el-avatar>
+            <el-avatar :size="28">{{ initials }}</el-avatar>
             <span class="account-copy">
                 <strong>{{ displayName }}</strong>
                 <small>{{ adminInfo.project || 'cochain' }}</small>
             </span>
-            <Icon name="fa fa-angle-down" size="14" aria-hidden="true" />
+            <Icon name="fa fa-angle-down" size="12" aria-hidden="true" />
         </button>
         <template #dropdown>
             <el-dropdown-menu>
@@ -24,7 +24,7 @@ import { logoutWithKeycloak } from '/@/utils/keycloak'
 
 const adminInfo = useAdminInfo()
 const displayName = computed(() => adminInfo.nickname || adminInfo.username || adminInfo.userid || '管理员')
-const initials = computed(() => displayName.value.trim().slice(0, 1).toUpperCase())
+const initials = computed(() => (displayName.value === 'Bootstrap Admin' ? 'A' : displayName.value.trim().slice(0, 1).toUpperCase()))
 const onLogout = () => logoutWithKeycloak()
 </script>
 
@@ -32,11 +32,11 @@ const onLogout = () => logoutWithKeycloak()
 .account-trigger {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 4px 8px 4px 4px;
+    gap: 8px;
+    min-height: 36px;
+    padding: 3px 6px 3px 3px;
     border: 0;
-    border-radius: var(--co-radius-pill);
+    border-radius: 8px;
     background: transparent;
     color: var(--co-ink);
     cursor: pointer;
@@ -47,6 +47,10 @@ const onLogout = () => logoutWithKeycloak()
 
 .account-trigger:hover {
     background: var(--co-canvas-subtle);
+}
+.account-trigger :deep(.el-avatar) {
+    background: #0066cc;
+    color: #ffffff;
 }
 
 .account-trigger:active {
@@ -65,7 +69,7 @@ const onLogout = () => logoutWithKeycloak()
     max-width: 140px;
     overflow: hidden;
     color: var(--co-ink);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -73,7 +77,7 @@ const onLogout = () => logoutWithKeycloak()
 
 .account-copy small {
     color: var(--co-ink-muted);
-    font-size: 12px;
+    font-size: 10px;
 }
 
 @media (max-width: 768px) {

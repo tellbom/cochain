@@ -262,7 +262,7 @@ function toRuleTableNode(item: RuleItem): RuleTableNode {
         path: item.path ?? '',
         icon: item.icon ?? '',
         type: normalizeRuleType(item.type),
-        menu_type: item.menu_type ?? '',
+        menu_type: item.menuType ?? item.menu_type ?? '',
         url: item.url ?? '',
         component: item.component ?? '',
         extend: item.extend ?? '',

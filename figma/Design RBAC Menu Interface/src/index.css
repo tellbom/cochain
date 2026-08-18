@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-apple-primary: #0066cc;
+  --color-apple-primary-focus: #0071e3;
+  --color-apple-primary-on-dark: #2997ff;
+  --color-apple-ink: #1d1d1f;
+  --color-apple-ink-muted-80: #333333;
+  --color-apple-ink-muted-48: #7a7a7a;
+  --color-apple-divider-soft: #f0f0f0;
+  --color-apple-hairline: #e0e0e0;
+  --color-apple-canvas: #ffffff;
+  --color-apple-canvas-parchment: #f5f5f7;
+  --color-apple-surface-pearl: #fafafc;
+  --color-apple-surface-tile-1: #272729;
+  --color-apple-surface-tile-2: #2a2a2c;
+  --color-apple-surface-tile-3: #252527;
+  --color-apple-surface-black: #000000;
+  --color-apple-surface-chip-translucent: rgba(210, 210, 215, 0.64);
+  
+  --font-apple-display: 'SF Pro Display', Inter, system-ui, -apple-system, sans-serif;
+  --font-apple-text: 'SF Pro Text', Inter, system-ui, -apple-system, sans-serif;
+  
+  --shadow-apple-product: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+  
+  --radius-apple-xs: 5px;
+  --radius-apple-sm: 8px;
+  --radius-apple-md: 11px;
+  --radius-apple-lg: 18px;
+  --radius-apple-pill: 9999px;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-apple-text);
+    color: var(--color-apple-ink);
+    background-color: var(--color-apple-canvas);
+    -webkit-font-smoothing: antialiased;
+    font-size: 17px;
+    line-height: 1.47;
+    letter-spacing: -0.01em; /* Mimic Apple's tight tracking with Inter */
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-apple-display);
+    letter-spacing: -0.02em; /* Even tighter for headings */
+  }
+}

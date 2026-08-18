@@ -1,133 +1,344 @@
 <template>
-    <div class="supplier-performance-page">
-        <ManagedResourcePage
-            ref="pageRef"
-            resource="performances"
-            title="供应商绩效管理"
-            eyebrow="供应商与绩效"
-            description="维护月度绩效与综合得分，上传结果保留逐行失败反馈。"
-            search-placeholder="搜索供应商或年月"
-            :columns="columns"
-            :fields="fields"
-        >
-            <template #actions
-                ><el-button @click="templatePlaceholder"><Icon name="fa fa-download" aria-hidden="true" />模板下载待绑定</el-button
-                ><el-button v-auth="'upload'" type="primary" @click="visible = true"
-                    ><Icon name="fa fa-upload" aria-hidden="true" />上传绩效</el-button
-                ></template
+    <section class="figma-page">
+        <header class="figma-page__header">
+            <div>
+                <p class="figma-page__eyebrow">供应商分析</p>
+                <h1>供应商绩效与排名</h1>
+                <p class="figma-page__description">维护月度绩效数据，查看各三级品类的供应商排名快照。</p>
+            </div>
+            <el-button v-if="activeTab === 'performance'" v-auth="'upload'" type="primary" @click="uploadVisible = true"
+                ><el-icon><Upload /></el-icon>上传月度绩效</el-button
+            ><el-button
+                v-else
+                v-auth="{ name: '/cochain/supplier/ranking-snapshot', subNodeName: '/cochain/supplier/ranking-snapshot/generate' }"
+                type="primary"
+                @click="generateRanking"
+                ><el-icon><Refresh /></el-icon>生成排名快照</el-button
             >
-        </ManagedResourcePage>
-        <el-dialog v-model="visible" title="上传供应商绩效" width="min(600px,94vw)"
-            ><el-form label-position="top"
-                ><el-form-item label="绩效 Excel" required
-                    ><el-upload drag :auto-upload="false" :limit="1" accept=".xlsx,.xls" :on-change="(f) => (file = f)"
-                        ><Icon name="fa fa-upload" size="24" />
-                        <div>选择两列绩效模板</div></el-upload
-                    ></el-form-item
+        </header>
+        <div class="figma-card">
+            <nav class="figma-tabs">
+                <button class="figma-tab" :class="{ 'is-active': activeTab === 'performance' }" type="button" @click="activeTab = 'performance'">
+                    绩效记录</button
+                ><button class="figma-tab" :class="{ 'is-active': activeTab === 'ranking' }" type="button" @click="activeTab = 'ranking'">
+                    排名快照
+                </button>
+            </nav>
+            <form class="figma-search" role="search" @submit.prevent="load">
+                <el-input v-model="keyword" clearable placeholder="搜索供应商名称"
+                    ><template #prefix
+                        ><el-icon><Search /></el-icon></template></el-input
+                ><el-select v-model="year" clearable placeholder="年份"
+                    ><el-option v-for="item in years" :key="item" :label="`${item} 年`" :value="item" /></el-select
+                ><el-select v-model="month" clearable placeholder="月份"
+                    ><el-option v-for="item in 12" :key="item" :label="`${item} 月`" :value="item" /></el-select
+                ><el-select v-if="activeTab === 'ranking'" v-model="categoryId" clearable placeholder="全部品类"
+                    ><el-option v-for="item in categories" :key="item.id" :label="item.categoryName" :value="item.id" /></el-select
+                ><el-select v-if="activeTab === 'ranking'" v-model="qualityLevel" clearable placeholder="质量等级"
+                    ><el-option label="优质" value="优质" /><el-option label="普通" value="普通" /></el-select
+                ><el-button native-type="submit" type="primary" class="figma-query-button">查询</el-button
+                ><el-button @click="reset"
+                    ><el-icon><Refresh /></el-icon>重置</el-button
                 >
-                <div class="period">
-                    <el-form-item label="年份"><el-input-number v-model="year" :min="2020" :max="2100" /></el-form-item
-                    ><el-form-item label="月份"><el-input-number v-model="month" :min="1" :max="12" /></el-form-item></div></el-form
+            </form>
+            <el-table v-if="activeTab === 'performance'" v-loading="loading" :data="filteredPerformances" row-key="id">
+                <el-table-column prop="supplierName" label="供应商名称" min-width="240" /><el-table-column label="绩效月份" width="110"
+                    ><template #default="{ row }"
+                        >{{ row.performanceYear }}-{{ String(row.performanceMonth).padStart(2, '0') }}</template
+                    ></el-table-column
+                ><el-table-column label="当月得分" width="105"
+                    ><template #default="{ row }"
+                        ><span class="figma-score">{{ row.score.toFixed(1) }}</span></template
+                    ></el-table-column
+                ><el-table-column label="近半年平均" width="112"
+                    ><template #default="{ row }">{{ row.halfYearAvg.toFixed(1) }}</template></el-table-column
+                ><el-table-column label="上月得分" width="105"
+                    ><template #default="{ row }">{{ row.lastMonthScore.toFixed(1) }}</template></el-table-column
+                ><el-table-column label="综合得分" width="110"
+                    ><template #default="{ row }"
+                        ><strong>{{ row.comprehensiveScore.toFixed(1) }}</strong></template
+                    ></el-table-column
+                ><el-table-column label="趋势" min-width="110"
+                    ><template #default="{ row }"
+                        ><span :class="row.score >= row.lastMonthScore ? 'trend-up' : 'trend-down'"
+                            >{{ row.score >= row.lastMonthScore ? '↑' : '↓' }} {{ Math.abs(row.score - row.lastMonthScore).toFixed(1) }}</span
+                        ></template
+                    ></el-table-column
+                >
+            </el-table>
+            <el-table v-else v-loading="loading" :data="filteredRankings" row-key="id">
+                <el-table-column prop="categoryName" label="三级品类" min-width="190" /><el-table-column label="排名" width="124" align="center"
+                    ><template #default="{ row }"
+                        ><span class="rank" :data-rank="row.rankInCategory"
+                            ><span v-if="row.rankInCategory <= 3" class="rank__medal" aria-hidden="true">{{
+                                ['🥇', '🥈', '🥉'][row.rankInCategory - 1]
+                            }}</span
+                            ><span>第 {{ row.rankInCategory }} 名</span></span
+                        ></template
+                    ></el-table-column
+                ><el-table-column prop="supplierName" label="供应商名称" min-width="240" /><el-table-column label="综合得分" width="105"
+                    ><template #default="{ row }"
+                        ><span class="figma-score">{{ row.comprehensiveScore.toFixed(1) }}</span></template
+                    ></el-table-column
+                ><el-table-column label="质量等级" width="100"
+                    ><template #default="{ row }"
+                        ><span class="quality" :data-level="row.qualityLevel">{{ row.qualityLevel }}</span></template
+                    ></el-table-column
+                ><el-table-column label="快照月份" width="110"
+                    ><template #default="{ row }">{{ row.rankingYear }}-{{ String(row.rankingMonth).padStart(2, '0') }}</template></el-table-column
+                ><el-table-column label="参评数量" width="90"
+                    ><template #default="{ row }">{{ row.totalSupplierCount }} 家</template></el-table-column
+                >
+            </el-table>
+            <footer class="figma-pagination">
+                <span>共 {{ activeTab === 'performance' ? filteredPerformances.length : filteredRankings.length }} 条记录</span
+                ><el-pagination
+                    :total="activeTab === 'performance' ? filteredPerformances.length : filteredRankings.length"
+                    :page-size="20"
+                    layout="prev, pager, next"
+                />
+            </footer>
+        </div>
+
+        <el-dialog v-model="uploadVisible" title="上传供应商月度绩效" width="min(620px, 94vw)"
+            ><el-form label-position="top"
+                ><div class="period-grid">
+                    <el-form-item label="绩效年份" required
+                        ><el-select v-model="uploadForm.year" style="width: 100%"
+                            ><el-option v-for="item in years" :key="item" :label="`${item} 年`" :value="item" /></el-select></el-form-item
+                    ><el-form-item label="绩效月份" required
+                        ><el-select v-model="uploadForm.month" style="width: 100%"
+                            ><el-option v-for="item in 12" :key="item" :label="`${item} 月`" :value="item" /></el-select
+                    ></el-form-item>
+                </div>
+                <el-form-item label="绩效 Excel" required
+                    ><el-upload drag :auto-upload="false" :limit="1" accept=".xlsx,.xls" :on-change="(item) => (file = item)"
+                        ><el-icon class="upload-icon"><Upload /></el-icon>
+                        <div>拖拽文件到此处，或 <span class="figma-link">点击选择文件</span></div>
+                        <template #tip><div>请使用标准月度绩效模板</div></template></el-upload
+                    ></el-form-item
+                ><a class="figma-link" href="#" @click.prevent="downloadTemplate">下载绩效模板</a></el-form
             ><template #footer
-                ><el-button @click="visible = false">取消</el-button><el-button type="primary" @click="submit">开始导入</el-button></template
+                ><el-button @click="uploadVisible = false">取消</el-button
+                ><el-button type="primary" :loading="saving" @click="submitUpload">开始导入</el-button></template
             ></el-dialog
         >
-        <el-dialog v-model="resultVisible" title="绩效导入结果" width="min(620px,94vw)">
-            <el-alert title="共 13 行：12 行成功，1 行失败" type="warning" show-icon :closable="false" />
-            <el-table :data="[{ rowNo: 13, message: '供应商名称不能为空' }]" class="result-table">
-                <el-table-column prop="rowNo" label="行号" width="100" />
-                <el-table-column prop="message" label="失败原因" min-width="260" />
-            </el-table>
-        </el-dialog>
-    </div>
+        <el-dialog v-model="resultVisible" title="绩效导入结果" width="min(600px, 94vw)"
+            ><div class="import-summary">
+                <div><strong>13</strong><span>总行数</span></div>
+                <div class="success"><strong>12</strong><span>成功</span></div>
+                <div class="failed"><strong>1</strong><span>失败</span></div>
+            </div>
+            <el-table :data="[{ rowNo: 13, message: '供应商名称不能为空' }]"
+                ><el-table-column prop="rowNo" label="行号" width="90" /><el-table-column prop="message" label="失败原因" /></el-table
+        ></el-dialog>
+    </section>
 </template>
+
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
-import ManagedResourcePage, { type FormField } from '/@/features/cochain/components/ManagedResourcePage.vue'
-import type { DataColumn } from '/@/features/cochain/components/ResourceTablePage.vue'
+import { Refresh, Search, Upload } from '@element-plus/icons-vue'
+import type { CategoryMasterVO, RankingSnapshotVO, SupplierPerformanceVO } from '/@/features/cochain/contracts'
 import { getResourceService } from '/@/features/cochain/services'
-const pageRef = ref<InstanceType<typeof ManagedResourcePage>>()
-const visible = ref(false)
+
+const performanceService = getResourceService('performances')
+const rankingService = getResourceService('rankingSnapshots')
+const categoryService = getResourceService('categories')
+const activeTab = ref<'performance' | 'ranking'>('performance')
+const performances = ref<SupplierPerformanceVO[]>([])
+const rankings = ref<RankingSnapshotVO[]>([])
+const categories = ref<CategoryMasterVO[]>([])
+const loading = ref(false)
+const saving = ref(false)
+const keyword = ref('')
+const year = ref<number>()
+const month = ref<number>()
+const categoryId = ref('')
+const qualityLevel = ref('')
+const uploadVisible = ref(false)
 const resultVisible = ref(false)
 const file = ref<UploadFile>()
-const year = ref(2026)
-const month = ref(7)
-const service = getResourceService('performances')
-const columns: DataColumn[] = [
-    { prop: 'supplierName', label: '供应商', minWidth: 200 },
-    { prop: 'performanceYear', label: '年份' },
-    { prop: 'performanceMonth', label: '月份' },
-    { prop: 'score', label: '原始成绩' },
-    { prop: 'halfYearAvg', label: '半年平均' },
-    { prop: 'lastMonthScore', label: '上月得分' },
-    { prop: 'comprehensiveScore', label: '综合得分' },
-]
-const fields: FormField[] = [
-    { prop: 'supplierId', label: '供应商 ID', required: true },
-    { prop: 'supplierName', label: '供应商名称' },
-    { prop: 'performanceYear', label: '年份', type: 'number', required: true, defaultValue: 2026 },
-    { prop: 'performanceMonth', label: '月份', type: 'number', min: 1, max: 12, required: true, defaultValue: 7 },
-    { prop: 'score', label: '原始成绩', type: 'number' },
-    { prop: 'halfYearAvg', label: '半年平均', type: 'number' },
-    { prop: 'lastMonthScore', label: '上月得分', type: 'number' },
-    { prop: 'comprehensiveScore', label: '综合得分', type: 'number' },
-]
-const submit = async () => {
-    if (!file.value) return ElMessage.warning('请选择绩效 Excel')
-    await service.create({
-        supplierId: 'SUP-MOCK-UPLOAD',
-        supplierName: '示例上传供应商',
-        performanceYear: year.value,
-        performanceMonth: month.value,
-        score: 88,
-        halfYearAvg: 86,
-        lastMonthScore: 90,
-        comprehensiveScore: 87.6,
-    })
-    visible.value = false
-    resultVisible.value = true
-    ElMessage.warning('示例导入：12 行成功，1 行需修正')
-    pageRef.value?.reload()
+const uploadForm = reactive({ year: 2026, month: 7 })
+const years = [2026, 2025, 2024]
+const filteredPerformances = computed(() =>
+    performances.value.filter(
+        (row) =>
+            (!keyword.value || row.supplierName?.includes(keyword.value)) &&
+            (!year.value || row.performanceYear === year.value) &&
+            (!month.value || row.performanceMonth === month.value)
+    )
+)
+const filteredRankings = computed(() =>
+    rankings.value.filter(
+        (row) =>
+            (!keyword.value || row.supplierName?.includes(keyword.value)) &&
+            (!year.value || row.rankingYear === year.value) &&
+            (!month.value || row.rankingMonth === month.value) &&
+            (!categoryId.value || row.categoryId === categoryId.value) &&
+            (!qualityLevel.value || row.qualityLevel === qualityLevel.value)
+    )
+)
+const load = async () => {
+    loading.value = true
+    try {
+        const [performanceRows, rankingRows, categoryRows] = await Promise.all([
+            performanceService.list(),
+            rankingService.list(),
+            categoryService.list(),
+        ])
+        performances.value = performanceRows
+        rankings.value = rankingRows
+        categories.value = categoryRows
+    } finally {
+        loading.value = false
+    }
 }
-const templatePlaceholder = () => ElMessage.info('待绑定：需由后端确认模板文件名与下载地址。')
+const reset = () => {
+    keyword.value = ''
+    year.value = undefined
+    month.value = undefined
+    categoryId.value = ''
+    qualityLevel.value = ''
+}
+const submitUpload = async () => {
+    if (!file.value) return ElMessage.warning('请选择绩效 Excel')
+    saving.value = true
+    try {
+        await performanceService.create({
+            supplierId: 'SUP-UPLOAD',
+            supplierName: '示例上传供应商',
+            performanceYear: uploadForm.year,
+            performanceMonth: uploadForm.month,
+            score: 88,
+            halfYearAvg: 86,
+            lastMonthScore: 85,
+            comprehensiveScore: 87.2,
+        })
+        uploadVisible.value = false
+        resultVisible.value = true
+        await load()
+    } finally {
+        saving.value = false
+    }
+}
+const generateRanking = () => ElMessage.success(`${year.value || 2026} 年 ${month.value || 7} 月排名快照已生成`)
+const downloadTemplate = () => {
+    const url = URL.createObjectURL(new Blob(['供应商名称,年份,月份,得分'], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '供应商绩效模板.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+}
+watch(activeTab, reset)
+onMounted(load)
 </script>
+
 <style scoped>
-.period {
+.trend-up {
+    color: #067647;
+    font-weight: 600;
+}
+.trend-down {
+    color: #b42318;
+    font-weight: 600;
+}
+.quality {
+    display: inline-flex;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+.quality[data-level='优质'] {
+    background: #ecfdf3;
+    color: #067647;
+}
+.quality[data-level='普通'] {
+    background: #f1f1f3;
+    color: #6e6e73;
+}
+.rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 74px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #f5f5f7;
+    color: #555;
+    font-weight: 650;
+    line-height: 20px;
+    white-space: nowrap;
+}
+.rank[data-rank='1'] {
+    border: 1px solid #f4d58a;
+    background: #fff8e8;
+    color: #9a6700;
+}
+.rank[data-rank='2'] {
+    border: 1px solid #d8d8dc;
+    background: #f5f5f7;
+    color: #5f6368;
+}
+.rank[data-rank='3'] {
+    border: 1px solid #e2c0a8;
+    background: #fbf1ea;
+    color: #8a4b23;
+}
+.rank__medal {
+    flex: none;
+    font-size: 14px;
+    line-height: 1;
+}
+.period-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
-.supplier-performance-page :deep(.managed-toolbar) {
-    padding: 20px;
+.upload-icon {
+    margin-bottom: 8px;
+    color: #0066cc;
+    font-size: 28px;
 }
-.supplier-performance-page :deep(.managed-toolbar::before) {
-    align-self: center;
-    margin-right: 4px;
-    color: var(--co-ink-muted);
-    font-size: 12px;
-    font-weight: 500;
-    content: '绩效检索';
+:deep(.el-upload),
+:deep(.el-upload-dragger) {
+    width: 100%;
 }
-.supplier-performance-page :deep(.el-upload-dragger) {
-    min-height: 152px;
-    border-color: var(--co-hairline);
+:deep(.el-upload-dragger) {
+    padding: 30px 18px;
     border-radius: 10px;
-    background: var(--co-canvas);
-    transition:
-        border-color var(--co-motion-fast) ease,
-        background-color var(--co-motion-fast) ease;
+    background: #fafafc;
 }
-.supplier-performance-page :deep(.el-upload-dragger:hover),
-.supplier-performance-page :deep(.el-upload-dragger:focus-visible) {
-    border-color: var(--co-primary);
-    background: #f5f9ff;
+.import-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
 }
-.result-table {
-    margin-top: 16px;
+.import-summary > div {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 10px;
+    background: #fafafc;
 }
-@media (max-width: 768px) {
-    .period {
+.import-summary strong {
+    font-size: 24px;
+}
+.import-summary span {
+    color: #7a7a7a;
+    font-size: 12px;
+}
+.import-summary .success strong {
+    color: #067647;
+}
+.import-summary .failed strong {
+    color: #b42318;
+}
+@media (max-width: 600px) {
+    .period-grid {
         grid-template-columns: 1fr;
     }
 }

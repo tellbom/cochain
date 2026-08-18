@@ -1,205 +1,82 @@
 import type { ResourceKey, ResourceTypeMap } from '../contracts'
+import * as design from '../../../../figma/Design RBAC Menu Interface/src/mock'
 
-const now = '2026-08-11 10:00:00'
+const now = '2026-08-14 09:32:15'
 
+/**
+ * The approved Figma Make download is the canonical fixture for mock mode.
+ * Adapters below only remove presentation-only fields or fill fields that exist
+ * in the production API contract but are intentionally absent from the mockup.
+ */
 export const mockData: { [K in ResourceKey]: ResourceTypeMap[K][] } = {
-    batches: [
-        {
-            id: '1786400000000000001',
-            batchNo: 'MOCK-BATCH-0811-01',
-            flowNo: 'MOCK-FLOW-2401',
-            batchStatus: 'DATA_READY',
-            uploadFileName: '示例分包数据.xlsx',
-            totalPartCount: 104,
-            totalPackageCount: 0,
-            operator: '示例用户',
-            createdTime: now,
-        },
-        {
-            id: '1786400000000000002',
-            batchNo: 'MOCK-BATCH-0810-02',
-            flowNo: 'MOCK-FLOW-2398',
-            batchStatus: 'COMPLETED',
-            uploadFileName: '示例历史批次.xlsx',
-            totalPartCount: 86,
-            totalPackageCount: 12,
-            operator: '示例用户',
-            createdTime: '2026-08-10 15:20:00',
-        },
-    ],
-    batchParts: [
-        {
-            id: '1786410000000000001',
-            batchId: '1786400000000000001',
-            seqNo: 1,
-            partDrawingNo: 'MOCK-ZZ-10001-L',
-            aircraftModel: 'ZZ',
-            partName: '示例左侧框梁',
-            materialType: '铝合金',
-            lengthValue: 820,
-            widthValue: 210,
-            nestingInfo: '板材 A-01',
-            historySupplier1: '示例供应商甲',
-            supplierCountNeeded: 2,
-            thirdCategory: '机加结构件',
-            thirdCategoryId: 'CAT-MOCK-01',
-            partType: '中型',
-        },
-    ],
-    packages: [
-        {
-            id: '1786420000000000001',
-            batchId: '1786400000000000002',
-            packageNo: 'ZZ-2608-001',
-            categoryId: 'CAT-MOCK-01',
-            supplierCountNeeded: 2,
-            recommendCount: 6,
-            partCount: 10,
-            partType: '中型',
-            maxPartLimit: 10,
-            hasHistorySupplier: 1,
-            isSpecialCategory: 0,
-            recommendationStatus: '已推荐',
-        },
-    ],
-    packageParts: [{ id: '1786430000000000001', packageId: '1786420000000000001', partId: '1786410000000000001', partDrawingNo: 'MOCK-ZZ-10001-L' }],
-    suppliers: [
-        { id: 'SUP-MOCK-001', supplierName: '示例供应商甲', enabled: 1, remark: 'Mock 数据，不代表真实供应商' },
-        { id: 'SUP-MOCK-002', supplierName: '示例供应商乙', enabled: 0, remark: '用于验证停用状态' },
-    ],
-    performances: [
-        {
-            id: 'PERF-MOCK-001',
-            supplierId: 'SUP-MOCK-001',
-            supplierName: '示例供应商甲',
-            performanceYear: 2026,
-            performanceMonth: 7,
-            score: 89,
-            halfYearAvg: 86.5,
-            lastMonthScore: 90,
-            comprehensiveScore: 87.9,
-        },
-    ],
-    supplierCategories: [
-        { id: 'SC-MOCK-001', supplierId: 'SUP-MOCK-001', supplierName: '示例供应商甲', categoryId: 'CAT-MOCK-01', categoryName: '机加结构件' },
-    ],
-    categories: [
-        {
-            id: 'CAT-MOCK-01',
-            categoryName: '机加结构件',
-            materialType: '铝合金',
-            lengthMin: 0,
-            lengthMax: 1200,
-            widthMin: 0,
-            widthMax: 500,
-            sizeLogic: 'AND',
-            partType: '中型',
-        },
-    ],
-    specialCategories: [
-        {
-            id: 'SPECIAL-MOCK-01',
-            categoryId: 'CAT-MOCK-02',
-            categoryName: '复合材料件',
-            specialType: 'COMPOSITE',
-            recommendRule: 'ALL_SUPPLIERS',
-            ignoreQuality: 1,
-        },
-    ],
-    rankingSnapshots: [
-        {
-            id: 'RANK-MOCK-001',
-            supplierId: 'SUP-MOCK-001',
-            supplierName: '示例供应商甲',
-            categoryId: 'CAT-MOCK-01',
-            categoryName: '机加结构件',
-            rankingYear: 2026,
-            rankingMonth: 7,
-            comprehensiveScore: 87.9,
-            rankInCategory: 1,
-            qualityLevel: '优质',
-            totalSupplierCount: 8,
-        },
-    ],
-    roundRobinCursors: [
-        {
-            id: 'CURSOR-MOCK-001',
-            categoryId: 'CAT-MOCK-01',
-            categoryName: '机加结构件',
-            qualityLevel: '优质',
-            rankingYear: 2026,
-            rankingMonth: 7,
-            cursorPosition: 2,
-            supplierCount: 3,
-        },
-    ],
-    recommendations: [
-        {
-            id: 'REC-MOCK-001',
-            packageId: '1786420000000000001',
-            batchId: '1786400000000000002',
-            supplierId: 'SUP-MOCK-001',
-            supplierName: '示例供应商甲',
-            recommendOrder: 1,
-            recommendSource: 'HISTORY',
-            qualityLevel: '优质',
-            performanceScore: 87.9,
-        },
-    ],
-    historySuppliers: [
-        {
-            id: 'HIS-MOCK-001',
-            partDrawingNo: 'MOCK-ZZ-10001-L',
-            supplierId: 'SUP-MOCK-001',
-            supplierName: '示例供应商甲',
-            cooperationCount: 4,
+    batches: design.BATCHES.map((row) => ({ ...row })),
+    batchParts: design.BATCH_PARTS.map(({ packageNo: _packageNo, ...row }) => ({ ...row })) as ResourceTypeMap['batchParts'][],
+    packages: design.PACKAGES.map(({ categoryName: _categoryName, ...row }) => ({ ...row })) as ResourceTypeMap['packages'][],
+    packageParts: design.BATCH_PARTS.filter((row) => row.packageId).map((row) => ({
+        id: `pp-${row.id}`,
+        packageId: row.packageId,
+        partId: row.id,
+        partDrawingNo: row.partDrawingNo,
+    })),
+    suppliers: design.SUPPLIERS.map((row) => ({ ...row })) as ResourceTypeMap['suppliers'][],
+    performances: design.PERFORMANCES.map((row) => ({ ...row })),
+    supplierCategories: design.SUPPLIER_CATEGORIES.map((row) => ({
+        ...row,
+        supplierName: design.SUPPLIERS.find((supplier) => supplier.id === row.supplierId)?.supplierName,
+    })),
+    categories: design.CATEGORY_MASTERS.map((row) => ({ ...row })) as ResourceTypeMap['categories'][],
+    specialCategories: design.CATEGORY_CONFIGS.map((row) => ({ ...row })) as ResourceTypeMap['specialCategories'][],
+    rankingSnapshots: design.RANKINGS.map((row) => ({ ...row })) as ResourceTypeMap['rankingSnapshots'][],
+    roundRobinCursors: design.CATEGORY_MASTERS.slice(0, 3).map((category, index) => ({
+        id: `cursor-${category.id}`,
+        categoryId: category.id,
+        categoryName: category.categoryName,
+        qualityLevel: index === 2 ? ('普通' as const) : ('优质' as const),
+        rankingYear: 2026,
+        rankingMonth: 7,
+        cursorPosition: index + 1,
+        supplierCount: design.SUPPLIER_CATEGORIES.filter((row) => row.categoryId === category.id).length,
+    })),
+    recommendations: design.RECOMMENDATIONS.map((row) => ({ ...row })) as ResourceTypeMap['recommendations'][],
+    historySuppliers: design.BATCH_PARTS.filter((row) => row.historySupplier1).map((row, index) => {
+        const supplier = design.SUPPLIERS[index % design.SUPPLIERS.length]
+        return {
+            id: `history-${row.id}`,
+            partDrawingNo: row.partDrawingNo,
+            supplierId: supplier.id,
+            supplierName: row.historySupplier1,
+            cooperationCount: Math.max(1, 5 - index),
             lastCooperationTime: '2026-07-18',
-        },
-    ],
-    leftRightRules: [
-        { id: 'LRR-MOCK-001', aircraftModel: 'ZZ', leftSuffix: '-L', rightSuffix: '-R', enabled: 1, remark: '默认规则组 1' },
-        { id: 'LRR-MOCK-002', aircraftModel: 'YY', leftSuffix: 'L', rightSuffix: 'R', enabled: 1, remark: '默认规则组 2' },
-        { id: 'LRR-MOCK-003', aircraftModel: 'XX', leftSuffix: '-01', rightSuffix: '-02', enabled: 1, remark: '默认规则组 3' },
-        { id: 'LRR-MOCK-004', aircraftModel: 'WW', leftSuffix: '左', rightSuffix: '右', enabled: 1, remark: '默认规则组 4' },
-    ],
-    leftRightManuals: [
-        {
-            id: 'LRM-MOCK-001',
-            aircraftModel: 'ZZ',
-            leftPartDrawingNo: 'MOCK-ZZ-10001-L',
-            rightPartDrawingNo: 'MOCK-ZZ-10001-R',
-            remark: '示例手动配对',
-        },
-    ],
-    typePackageConfigs: [
-        { id: 'TPC-MOCK-001', partType: '小型', maxPartLimit: 20, enabled: 1, remark: '默认示例值，绑定前请核对' },
-        { id: 'TPC-MOCK-002', partType: '中型', maxPartLimit: 10, enabled: 1, remark: '默认示例值，绑定前请核对' },
-        { id: 'TPC-MOCK-003', partType: '大型', maxPartLimit: 5, enabled: 1, remark: '默认示例值，绑定前请核对' },
-        { id: 'TPC-MOCK-004', partType: '超大型', maxPartLimit: 2, enabled: 1, remark: '默认示例值，绑定前请核对' },
-        { id: 'TPC-MOCK-005', partType: '其他', maxPartLimit: 8, enabled: 1, remark: '默认示例值，绑定前请核对' },
-    ],
-    operationLogs: [
-        {
-            id: 'OP-MOCK-001',
-            batchId: '1786400000000000002',
-            operationType: 'ORCHESTRATE',
-            operationResult: 'SUCCESS',
-            operator: '示例用户',
-            detail: 'Mock：完成分包与推荐',
-            operationTime: now,
-        },
-    ],
-    systemOperateLogs: [
-        {
-            id: 'SYS-MOCK-001',
-            userid: '196045',
-            username: 'Bootstrap Admin',
-            permissionCode: 'supplier:supplier:query',
-            httpMethod: 'GET',
-            requestPath: '/api/supplier/page',
-            responseStatus: 200,
-            loginIp: '192.168.124.5',
-            operateTime: now,
-        },
-    ],
+        }
+    }),
+    leftRightRules: design.RIGHT_RULES.map((row) => ({ ...row, enabled: 1 as const, remark: '设计定稿规则' })),
+    leftRightManuals: design.RIGHT_MANUALS.map((row) => ({ ...row, aircraftModel: row.leftPartDrawingNo.split('-')[0], remark: '人工确认关系' })),
+    typePackageConfigs: design.TYPE_CONFIGS.map(({ typeLabel, maxPartCount, ...row }) => ({
+        ...row,
+        maxPartLimit: maxPartCount,
+        enabled: 1 as const,
+        remark: typeLabel,
+    })) as ResourceTypeMap['typePackageConfigs'][],
+    operationLogs: design.OPERATION_LOGS.map((row) => ({
+        id: row.id,
+        batchId: row.targetObject.startsWith('SUB-') ? row.targetObject : undefined,
+        operationType: row.operationType,
+        operationResult: row.result === '成功' ? ('SUCCESS' as const) : ('FAILED' as const),
+        operator: row.operator,
+        detail: `${row.targetModule} · ${row.targetObject}${row.remark ? ` · ${row.remark}` : ''}`,
+        operationTime: row.operateTime,
+    })),
+    systemOperateLogs: design.SYSTEM_LOGS.map((row) => ({
+        id: row.id,
+        userid: row.operator,
+        username: row.operator,
+        permissionCode: row.operationType,
+        httpMethod: row.result === '成功' ? 'POST' : 'GET',
+        requestPath: row.targetObject,
+        responseStatus: row.result === '成功' ? 200 : 401,
+        loginIp: row.operatorIp,
+        operateTime: row.operateTime,
+    })),
 }
+
+void now

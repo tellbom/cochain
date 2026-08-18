@@ -30,11 +30,7 @@ const state = reactive({
 })
 
 const verticalMenusScrollbarHeight = computed(() => {
-    let menuTopBarHeight = 0
-    if (config.layout.menuShowTopBar) {
-        menuTopBarHeight = 50
-    }
-    return 'calc(100vh - ' + menuTopBarHeight + 'px)'
+    return '100%'
 })
 
 /**
@@ -73,7 +69,7 @@ onBeforeRouteUpdate((to) => {
 }
 .layouts-menu-vertical {
     border: 0;
-    padding: 8px 0 30px;
+    padding: 10px 0 20px;
     --el-menu-bg-color: v-bind('config.getColorVal("menuBackground")');
     --el-menu-text-color: v-bind('config.getColorVal("menuColor")');
     --el-menu-active-color: v-bind('config.getColorVal("menuActiveColor")');
@@ -88,18 +84,18 @@ onBeforeRouteUpdate((to) => {
 }
 .layouts-menu-vertical .el-menu-item,
 .layouts-menu-vertical .el-sub-menu__title {
-    height: 44px;
-    line-height: 44px;
-    margin: 2px 10px;
-    border-radius: 8px;
+    height: 40px;
+    line-height: 40px;
+    margin: 1px 0;
+    border-radius: 0;
     color: var(--el-menu-text-color);
-    font-size: 14px;
-    font-weight: 400;
+    font-size: 13px;
+    font-weight: 500;
     letter-spacing: 0;
 }
 .layouts-menu-vertical .el-menu-item:hover,
 .layouts-menu-vertical .el-sub-menu__title:hover {
-    background-color: #ffffff;
+    background-color: #f5f5f7;
     color: var(--el-menu-active-color);
 }
 .layouts-menu-vertical .el-menu-item.is-active,
@@ -107,6 +103,7 @@ onBeforeRouteUpdate((to) => {
     background-color: var(--ba-menu-active-bg) !important;
     color: var(--el-menu-active-color) !important;
     font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--el-menu-active-color);
 }
 .layouts-menu-vertical .el-menu-item.is-active .menu-title,
 .layouts-menu-vertical .el-sub-menu.is-active > .el-sub-menu__title .menu-title {

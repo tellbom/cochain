@@ -1,18 +1,17 @@
 <template>
     <div class="layout-logo">
-        <img class="brand-mark" src="/icon.png" alt="Cochain" />
+        <span class="brand-mark" aria-hidden="true"><el-icon><Link /></el-icon></span>
         <div v-if="!config.layout.menuCollapse" :style="{ color: config.getColorVal('menuColor') }" class="website-name">
             <strong>Cochain</strong>
             <span>采购协同平台</span>
         </div>
-        <Icon
-            @click="onMenuCollapse"
-            :name="config.layout.menuCollapse ? 'fa fa-indent' : 'fa fa-dedent'"
-            :class="config.layout.menuCollapse ? 'unfold' : ''"
-            :color="config.getColorVal('menuActiveColor')"
-            size="18"
-            class="fold"
-        />
+        <button class="fold" type="button" :aria-label="config.layout.menuCollapse ? '打开导航菜单' : '收起导航菜单'" @click="onMenuCollapse">
+            <Icon
+                :name="config.layout.menuCollapse ? 'fa fa-indent' : 'fa fa-dedent'"
+                color="#6e6e73"
+                size="16"
+            />
+        </button>
     </div>
 </template>
 
@@ -22,6 +21,7 @@ import { closeShade } from '/@/utils/pageShade'
 import { Session } from '/@/utils/storage'
 import { BEFORE_RESIZE_LAYOUT } from '/@/stores/constant/cacheKey'
 import { setNavTabsWidth } from '/@/utils/layout'
+import { Link } from '@element-plus/icons-vue'
 
 const config = useConfig()
 
@@ -45,45 +45,60 @@ const onMenuCollapse = function () {
 
 <style scoped lang="scss">
 .layout-logo {
-    width: 100%;
-    height: 64px;
+    width: 220px;
+    min-width: 220px;
+    height: 52px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     box-sizing: border-box;
-    padding: 10px 14px;
-    background: v-bind('config.getColorVal("menuTopBarBackground")');
+    padding: 7px 12px;
+    border-right: 1px solid var(--co-hairline);
+    background: #ffffff;
 }
 .brand-mark {
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    border-radius: 9px;
-    object-fit: contain;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 8px;
+    background: #0066cc;
+    color: #ffffff;
+    font-size: 18px;
 }
 .website-name {
     display: flex;
     flex-direction: column;
-    width: 180px;
-    padding-left: 10px;
+    width: 132px;
+    padding-left: 9px;
     font-family: var(--co-font-family);
     font-size: 12px;
     font-weight: 400;
-    line-height: 17px;
+    line-height: 14px;
     letter-spacing: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .website-name strong {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    line-height: 18px;
+    line-height: 16px;
 }
 .fold {
     margin-left: auto;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    cursor: pointer;
 }
-.unfold {
-    margin: 0 auto;
+.fold:hover {
+    background: #f5f5f7;
 }
 </style>

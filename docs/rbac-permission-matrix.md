@@ -84,7 +84,7 @@
 
 ## 4. 现有权限中心保留范围
 
-专用 SQL 原样保留通用模板中的以下 `auth/*` 菜单和按钮：
+以下 `auth/*` 菜单、路由和按钮继续保留并显示在“权限中心”目录中：
 
 -   API Permission Map、Project Grants、Menu Rules、Administrators、Permission Groups。
 -   Administrators 的 `add/del/edit/index`。
@@ -93,11 +93,13 @@
 
 不保留复制体 Dashboard，也不新增 Cochain Dashboard。
 
-## 5. 当前真实门禁状态
+## 5. 当前真实门禁状态（2026-08-18 复核）
 
 -   Keycloak `master` realm：HTTP 200。
 -   SSH `192.168.124.2:2223`：已取得 `SSH-2.0-OpenSSH_7.4` banner。
--   DM8 `192.168.124.2:5236`：已使用 GB18030 临时副本真实执行并完成幂等重跑。执行后 `administrator/project_grant/group/member = 1/1/1/1`，规则 88 条，业务页 18 条，业务按钮 47 条，RBAC API 映射 33 条，业务 API 误映射 0 条，孤儿父规则 0 条，旧标识 0 条。
--   RBAC `192.168.124.2:5005`：`/ops/health`、`/api/auth/login`、`/api/admin/index` 均返回 `404 page not found`，与 `E:\router\router` 当前源码合同不一致。
+-   DM8 `192.168.124.2:5236`：`cochain` 保留 88 条活动规则；可见菜单节点为 12 条（6 个业务 Menu、权限中心 MenuDir、5 个权限子 Menu），其余被合并的旧业务页面为 `add_rules_only`。
+-   RBAC `192.168.124.2:5005/rbacServer`：health 为 `healthy`，cache flush 与 `rbac_rule_index` 官方 reindex 均返回业务码 0。
+-   Elasticsearch：`rbac_rule_index` alias 仅指向一个新物理索引，`project=cochain` 为 88 条。
+-   Keycloak：真实交互登录成功，浏览器显示 6 个评审业务菜单以及权限中心和 5 个权限子菜单，默认落页为分包中心。
 
-因此 T011-T014 已完成；T015-T016 在修复或确认 RBAC 实际部署地址、取得真实登录凭据前不得声明通过，P2 及后续代码开发继续关闭。
+本轮只验证 project super 的完整可见性与链路，不扩展声称非 super 角色裁剪已经完成。

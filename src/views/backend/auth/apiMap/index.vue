@@ -1,5 +1,6 @@
 <template>
     <div class="rbac-apimap-page">
+
         <Commonsearch :fields="searchFields" @search="handleSearch" @reset="handleReset" />
 
         <Commontable

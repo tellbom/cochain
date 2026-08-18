@@ -302,7 +302,7 @@ function handleRulesSubmit() {
 
 // ── 状态切换 ───────────────────────────────────────────────────
 async function handleStatusToggle(row: GroupItem, active: string | number | boolean) {
-    const status = active === true ? 'Active' : 'Disabled'
+    const status = active ? 'Active' : 'Disabled'
     try {
         await updateGroupStatus(row.groupCode, { status })
         row.status = status

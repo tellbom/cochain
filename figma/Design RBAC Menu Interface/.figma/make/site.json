@@ -1,0 +1,10 @@
+{
+  "description": "This web application offers a user-friendly interface for managing role-based access control, designed with an Apple aesthetic for seamless navigation and operation.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

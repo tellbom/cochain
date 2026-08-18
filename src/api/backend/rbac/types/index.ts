@@ -178,6 +178,7 @@ export interface GroupCreateForm {
     status: RecordStatus
     /** 提交 ruleCode 列表，服务端推导 permissionCodes；["*"] 表示全部 */
     ruleCodes: string[]
+    extraPermissionCodes?: string[]
 }
 
 /** PUT /api/group/{groupCode} 请求体（null 字段不修改） */
@@ -186,11 +187,13 @@ export interface GroupUpdateForm {
     parentGroupCode?: string | null
     status?: RecordStatus | null
     ruleCodes?: string[] | null
+    extraPermissionCodes?: string[] | null
 }
 
 /** PUT /api/group/{groupCode}/rules 请求体 */
 export interface GroupRulesForm {
     ruleCodes: string[]
+    extraPermissionCodes?: string[]
 }
 
 /** PUT /api/group/{groupCode}/status 请求体 */
@@ -222,6 +225,7 @@ export interface RuleItem {
     icon: string
     name?: string
     path?: string
+    menuType?: string
     menu_type?: string
     url?: string
     component?: string
@@ -253,6 +257,7 @@ export interface RuleCreateForm {
 
 /** PUT /api/rule/{ruleCode} 请求体（null 字段不修改，parentRuleCode: "" 提升为根） */
 export interface RuleUpdateForm {
+    type?: RuleType | 'menu_dir' | 'menu' | 'button' | null
     title?: string | null
     name?: string | null
     path?: string | null

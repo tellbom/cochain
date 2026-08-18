@@ -1,8 +1,8 @@
 <template>
     <el-container class="layout-container classic-layout">
-        <Aside />
-        <el-container class="content-wrapper">
-            <Header />
+        <Header />
+        <el-container class="layout-body">
+            <Aside />
             <Main />
         </el-container>
     </el-container>
@@ -20,19 +20,20 @@ const navTabs = useNavTabs()
 
 <style scoped>
 .layout-container {
+    flex-direction: column;
     height: 100%;
     width: 100%;
 }
-.content-wrapper {
-    flex-direction: column;
+.layout-body {
+    min-height: 0;
+    flex: 1;
     width: 100%;
-    min-width: 0;
-    height: 100%;
     background: var(--co-canvas-subtle);
 }
 
 .classic-layout :deep(.layout-main) {
-    padding: var(--co-space-5) !important;
+    min-width: 0;
+    padding: 28px !important;
     background: var(--co-canvas-subtle);
 }
 

@@ -11,7 +11,7 @@ import { useRoute } from 'vue-router'
 import Classic from '/@/layouts/backend/container/classic.vue'
 import { onMounted, onBeforeMount } from 'vue'
 import { Session } from '/@/utils/storage'
-import { handleAdminRoute, getFirstRoute, routePush } from '/@/utils/router'
+import { handleAdminRoute, getFirstRoute, getMenuPaths, routePush } from '/@/utils/router'
 import router from '/@/router/index'
 import { adminBaseRoutePath } from '/@/router/static/adminBase'
 import { useEventListener } from '@vueuse/core'
@@ -65,13 +65,18 @@ const init = async () => {
     handleAdminRoute(menus)
 
     nextTick(() => {
+        const visibleMenuPaths = new Set(getMenuPaths(navTabs.state.tabsViewRoutes))
         // 预跳转到上次路径
         if (route.params.to) {
-            const lastRoute = JSON.parse(route.params.to as string)
-            if (lastRoute.path !== adminBaseRoutePath) {
-                const query = !isEmpty(lastRoute.query) ? lastRoute.query : {}
-                routePush({ path: lastRoute.path, query })
-                return
+            try {
+                const lastRoute = JSON.parse(route.params.to as string)
+                if (lastRoute.path !== adminBaseRoutePath && visibleMenuPaths.has(lastRoute.path)) {
+                    const query = !isEmpty(lastRoute.query) ? lastRoute.query : {}
+                    routePush({ path: lastRoute.path, query })
+                    return
+                }
+            } catch (error) {
+                console.warn('[layout] ignored invalid restored route', error)
             }
         }
 
