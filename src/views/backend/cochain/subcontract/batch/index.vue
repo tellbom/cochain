@@ -1185,8 +1185,7 @@ onMounted(() => {
     overflow-y: auto;
 }
 .package-card {
-    display: grid;
-    gap: 7px;
+    display: block;
     width: 100%;
     padding: 14px;
     border: 1px solid #e0e0e0;
@@ -1250,6 +1249,8 @@ onMounted(() => {
     color: #b42318;
 }
 .package-card__category {
+    display: block;
+    margin-top: 7px;
     color: #555;
     font-size: 13px;
 }
@@ -1257,6 +1258,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 7px;
+    margin-top: 7px;
     color: #7a7a7a;
     font-size: 11px;
 }
