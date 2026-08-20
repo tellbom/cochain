@@ -28,19 +28,31 @@
     </div>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ManagedResourcePage, { type FormField } from '/@/features/cochain/components/ManagedResourcePage.vue'
 import type { DataColumn } from '/@/features/cochain/components/ResourceTablePage.vue'
+import { supplierActionsApi } from '/@/features/cochain/services/supplierActions'
 import { getResourceService } from '/@/features/cochain/services'
+import type { CategoryMasterVO, SupplierVO } from '/@/features/cochain/contracts'
 const pageRef = ref<InstanceType<typeof ManagedResourcePage>>()
 const visible = ref(false),
     year = ref(2026),
     month = ref(7)
-const service = getResourceService('rankingSnapshots')
+const categoryService = getResourceService('categories')
+const supplierService = getResourceService('suppliers')
+const categories = ref<CategoryMasterVO[]>([])
+const suppliers = ref<SupplierVO[]>([])
+const categoryName = (id: string) => categories.value.find((item) => item.id === id)?.categoryName || id
+const supplierName = (id: string) => suppliers.value.find((item) => item.id === id)?.supplierName || id
+onMounted(async () => {
+    const [categoryRows, supplierRows] = await Promise.all([categoryService.list(), supplierService.list()])
+    categories.value = categoryRows
+    suppliers.value = supplierRows
+})
 const columns: DataColumn[] = [
-    { prop: 'supplierName', label: '供应商', minWidth: 180 },
-    { prop: 'categoryName', label: '品类', minWidth: 160 },
+    { prop: 'supplierId', label: '供应商', minWidth: 180, format: (r) => supplierName(r.supplierId) },
+    { prop: 'categoryId', label: '品类', minWidth: 160, format: (r) => categoryName(r.categoryId) },
     { prop: 'rankingYear', label: '年份' },
     { prop: 'rankingMonth', label: '月份' },
     { prop: 'comprehensiveScore', label: '综合得分' },
@@ -60,20 +72,9 @@ const generate = async () => {
         confirmButtonText: '生成',
         cancelButtonText: '取消',
     })
-    await service.create({
-        supplierId: 'SUP-MOCK-GENERATED',
-        supplierName: '示例快照供应商',
-        categoryId: 'CAT-MOCK-01',
-        categoryName: '机加结构件',
-        rankingYear: year.value,
-        rankingMonth: month.value,
-        comprehensiveScore: 86.8,
-        rankInCategory: 2,
-        qualityLevel: '优质',
-        totalSupplierCount: 8,
-    })
+    const result = await supplierActionsApi.generateRankingSnapshot(year.value, month.value)
     visible.value = false
-    ElMessage.success('排名快照已生成，轮流游标已重置')
+    ElMessage.success(result.message || '排名快照已生成，轮流游标已重置')
     pageRef.value?.reload()
 }
 </script>

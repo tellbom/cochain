@@ -9,12 +9,14 @@
 
         <DataSurface :label="`${title}数据列表`">
             <form class="managed-toolbar" role="search" @submit.prevent="search">
-                <label class="managed-toolbar__label" for="managed-resource-keyword">关键词</label>
-                <el-input id="managed-resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="search">
-                    <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
-                </el-input>
-                <el-button native-type="submit" type="primary">查询</el-button>
-                <el-button @click="reset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
+                <template v-if="searchField">
+                    <label class="managed-toolbar__label" for="managed-resource-keyword">关键词</label>
+                    <el-input id="managed-resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="search">
+                        <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
+                    </el-input>
+                    <el-button native-type="submit" type="primary">查询</el-button>
+                    <el-button @click="reset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
+                </template>
                 <el-button v-if="allowDelete && state.selection.length" v-auth="'delete'" type="danger" plain @click="removeSelected"
                     >批量删除（{{ state.selection.length }}）</el-button
                 >
@@ -129,6 +131,8 @@ const props = withDefaults(
         title: string
         description?: string
         eyebrow?: string
+        /** 搜索框实际绑定的后端真实查询字段名；不传则不渲染搜索框（避免发送后端不存在的参数） */
+        searchField?: string
         searchPlaceholder?: string
         columns: DataColumn[]
         fields: FormField[]
@@ -168,8 +172,12 @@ const load = async () => {
     state.loading = true
     state.error = ''
     try {
-        const result = await service.page({ keyword: keyword.value, pageNum: state.pageNum, pageSize: state.pageSize })
-        state.rows = result.records
+        const result = await service.page({
+            ...(props.searchField && keyword.value ? { [props.searchField]: keyword.value } : {}),
+            pageNo: state.pageNum,
+            pageSize: state.pageSize,
+        })
+        state.rows = result.list
         state.total = result.total
     } catch (error: any) {
         state.rows = []

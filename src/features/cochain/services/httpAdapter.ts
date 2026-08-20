@@ -1,27 +1,13 @@
-import axios, { type AxiosInstance } from 'axios'
-import { useAdminInfo } from '/@/stores/adminInfo'
 import type { BaseEntity, EntityId, PageData, PageQuery, ResourceKey, ResourceTypeMap, Result } from '../contracts'
-import { resourceBasePaths } from './resourceCatalog'
+import { downloadBlobResponse } from './download'
+import { client } from './httpClient'
+import { resourceBasePaths, resourceImportConfig } from './resourceCatalog'
+import { unwrap } from './resultUtils'
 import type { ResourceService } from './types'
-
-const client: AxiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_AXIOS_BASE_URL || '',
-    timeout: 20_000,
-})
-
-client.interceptors.request.use((config) => {
-    const token = useAdminInfo().token
-    if (token) config.headers.Authorization = `Bearer ${token}`
-    return config
-})
-
-const unwrap = <T>(result: Result<T>): T => {
-    if (result.code !== 0) throw new Error(result.msg || `业务错误 ${result.code}`)
-    return result.data
-}
 
 export const createHttpResourceService = <K extends ResourceKey>(key: K): ResourceService<ResourceTypeMap[K]> => {
     const basePath = resourceBasePaths[key]
+    const importConfig = resourceImportConfig[key]
     return {
         async page(query: PageQuery = {}) {
             return unwrap((await client.get<Result<PageData<ResourceTypeMap[K]>>>(`${basePath}/page`, { params: query })).data)
@@ -44,5 +30,17 @@ export const createHttpResourceService = <K extends ResourceKey>(key: K): Resour
         async removeMany(ids: EntityId[]) {
             return unwrap((await client.delete<Result<boolean>>(basePath, { data: ids })).data)
         },
+        async exportXls(query: PageQuery = {}) {
+            const response = await client.get<Blob>(`${basePath}/export`, { params: query, responseType: 'blob' })
+            await downloadBlobResponse(response, `${key}-导出.xlsx`)
+        },
+        async importXls(file: File) {
+            if (!importConfig) throw new Error('该资源未提供通用导入接口')
+            const form = new FormData()
+            form.append('file', file)
+            const response = await client.request<Result<unknown>>({ url: importConfig.path, method: importConfig.method, data: form })
+            return unwrap(response.data)
+        },
     } as ResourceService<ResourceTypeMap[K] & BaseEntity>
 }
+

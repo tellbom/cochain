@@ -213,33 +213,50 @@ export default function BatchList({ onEnterWorkbench }: Props) {
       {/* Upload Excel Modal */}
       {showUpload && (
         <Modal title="上传分包 Excel" onClose={() => setShowUpload(false)}>
-          <div className="space-y-4">
+          <div className="space-y-5">
             <FormField label="选择文件">
-              <label className="block border-2 border-dashed border-[#e0e0e0] rounded-[10px] p-8 text-center cursor-pointer hover:border-[#0066cc]/50 hover:bg-[#f5f9ff] transition-colors">
-                <Upload size={24} className="mx-auto mb-2 text-[#b0b0b0]" />
-                {uploadFile
-                  ? <p className="text-[13px] font-medium text-[#0066cc]">{uploadFile.name}</p>
-                  : <>
-                    <p className="text-[13px] font-medium text-[#555]">点击选择或拖拽文件</p>
-                    <p className="text-[12px] text-[#b0b0b0] mt-1">.xlsx / .xls，最大 20 MB</p>
-                  </>}
+              <label className="group relative block w-full rounded-[14px] border border-dashed border-[#d2d2d7] bg-[#f5f5f7] p-8 text-center cursor-pointer overflow-hidden transition-all duration-300 hover:border-[#0066cc]/40 hover:bg-[#0066cc]/5">
+                <div className="absolute inset-0 bg-white/40 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110">
+                    <Upload size={22} className="text-[#0066cc]" />
+                  </div>
+                  {uploadFile
+                    ? <p className="text-[14px] font-medium text-[#1d1d1f]">{uploadFile.name}</p>
+                    : <>
+                      <p className="text-[14px] font-medium text-[#1d1d1f] mb-1">点击选择或拖拽 Excel 文件</p>
+                      <p className="text-[12px] text-[#86868b]">支持 .xlsx / .xls 格式，最大 20 MB</p>
+                    </>}
+                </div>
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
               </label>
             </FormField>
-            <FormField label="机型（选填）">
-              <FormInput value={aircraftModel} onChange={e => setAircraftModel(e.target.value)} placeholder="如 ARJ21、C919" />
-            </FormField>
-            <FormField label="操作人（选填）">
-              <FormInput value={operator} onChange={e => setOperator(e.target.value)} placeholder="默认为当前登录用户" />
-            </FormField>
-            <div className="flex justify-between items-center mt-2 pt-4 border-t border-[#f0f0f0]">
-              <button className="text-[12px] text-[#0066cc] hover:underline">下载导入模板</button>
-              <div className="flex gap-3">
-                <button onClick={() => setShowUpload(false)} className="h-9 px-5 rounded-[8px] border border-[#e0e0e0] text-[13px] text-[#333] hover:bg-[#f5f5f7]">取消</button>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="机型（选填）">
+                <FormSelect value={aircraftModel} onChange={e => setAircraftModel(e.target.value)}>
+                  <option value="">请选择机型</option>
+                  <option value="C919">C919</option>
+                  <option value="ARJ21">ARJ21</option>
+                  <option value="CR929">CR929</option>
+                  <option value="通用">通用</option>
+                </FormSelect>
+              </FormField>
+              <FormField label="操作人（选填）">
+                <FormInput value={operator || "当前登录用户"} disabled className="bg-[#f5f5f7] border-transparent text-[#86868b] !cursor-not-allowed" />
+              </FormField>
+            </div>
+            <div className="flex items-center justify-between pt-5 mt-2 border-t border-[#d2d2d7]/50">
+              <button className="text-[13px] font-medium text-[#0066cc] hover:text-[#0055b0] transition-colors flex items-center gap-1">
+                下载导入模板
+              </button>
+              <div className="flex gap-2.5">
+                <button onClick={() => setShowUpload(false)} className="h-[34px] px-4 rounded-full bg-[#f5f5f7] text-[13px] font-medium text-[#1d1d1f] hover:bg-[#e8e8ed] transition-colors">
+                  取消
+                </button>
                 <button
                   onClick={handleUpload}
                   disabled={!uploadFile || loading}
-                  className="h-9 px-5 rounded-[8px] bg-[#0066cc] text-white text-[13px] font-medium hover:bg-[#0055b0] disabled:opacity-50 flex items-center gap-2"
+                  className="h-[34px] px-5 rounded-full bg-[#0066cc] text-white text-[13px] font-medium hover:bg-[#0055b0] disabled:opacity-50 disabled:bg-[#d2d2d7] disabled:text-[#86868b] transition-all flex items-center gap-2 shadow-sm"
                 >
                   {loading && <Spinner size={14} />}
                   {loading ? "导入中…" : "开始导入"}

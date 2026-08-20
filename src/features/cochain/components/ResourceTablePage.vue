@@ -4,12 +4,14 @@
 
         <DataSurface :label="`${title}数据列表`">
             <form class="table-toolbar" role="search" @submit.prevent="onSearch">
-                <label class="table-toolbar__label" for="resource-keyword">关键词</label>
-                <el-input id="resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="onSearch">
-                    <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
-                </el-input>
-                <el-button type="primary" native-type="submit">查询</el-button>
-                <el-button @click="onReset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
+                <template v-if="searchField">
+                    <label class="table-toolbar__label" for="resource-keyword">关键词</label>
+                    <el-input id="resource-keyword" v-model="keyword" clearable :placeholder="searchPlaceholder" @clear="onSearch">
+                        <template #prefix><Icon name="fa fa-search" aria-hidden="true" /></template>
+                    </el-input>
+                    <el-button type="primary" native-type="submit">查询</el-button>
+                    <el-button @click="onReset"><Icon name="fa fa-refresh" aria-hidden="true" />重置</el-button>
+                </template>
                 <span class="table-toolbar__total">共 {{ state.total }} 条</span>
             </form>
 
@@ -94,6 +96,8 @@ const props = withDefaults(
         title: string
         description?: string
         eyebrow?: string
+        /** 搜索框实际绑定的后端真实查询字段名；不传则不渲染搜索框（避免发送后端不存在的参数） */
+        searchField?: string
         searchPlaceholder?: string
         columns: DataColumn[]
         initialQuery?: Record<string, unknown>
@@ -120,11 +124,11 @@ const load = async () => {
     try {
         const page = await service.page({
             ...props.initialQuery,
-            keyword: keyword.value,
-            pageNum: state.pageNum,
+            ...(props.searchField && keyword.value ? { [props.searchField]: keyword.value } : {}),
+            pageNo: state.pageNum,
             pageSize: state.pageSize,
         })
-        state.rows = page.records
+        state.rows = page.list
         state.total = page.total
     } catch (error: any) {
         state.rows = []

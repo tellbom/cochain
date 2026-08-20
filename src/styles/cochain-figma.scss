@@ -151,6 +151,7 @@
 .figma-status[data-status='DATA_READY'] { color: #0066cc; background: #e8f1fb; }
 .figma-status[data-status='PACKAGED'] { color: #6941c6; background: #f1ebff; }
 .figma-status[data-status='RECOMMENDED'] { color: #b54708; background: #fff3e0; }
+.figma-status[data-status='PARTIAL'] { color: #c4320a; background: #fff4ed; }
 .figma-status[data-status='COMPLETED'],
 .figma-status[data-status='SUCCESS'],
 .figma-status[data-status='ENABLED'] { color: #067647; background: #ecfdf3; }

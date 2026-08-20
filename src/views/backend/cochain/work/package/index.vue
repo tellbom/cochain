@@ -4,7 +4,8 @@
         title="工作包管理"
         eyebrow="分包中心"
         description="按批次追踪工作包容量、零件构成、历史供应商与推荐执行状态。"
-        search-placeholder="搜索工作包编号或批次 ID"
+        search-field="packageNo"
+        search-placeholder="搜索工作包编号"
         :columns="columns"
         :initial-query="initialQuery"
         ><template #row-actions="{ row }"><el-button link type="primary" @click="openParts(row.id)">包内零件</el-button></template></ResourceTablePage

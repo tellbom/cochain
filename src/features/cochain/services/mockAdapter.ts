@@ -23,16 +23,9 @@ const getStore = <K extends ResourceKey>(key: K): ResourceTypeMap[K][] => {
 }
 
 const matches = (item: Record<string, unknown>, query: PageQuery) => {
-    const ignored = new Set(['pageNum', 'pageSize'])
+    const ignored = new Set(['pageNo', 'pageSize'])
     return Object.entries(query).every(([field, value]) => {
         if (ignored.has(field) || value === undefined || value === null || value === '') return true
-        if (field === 'keyword') {
-            return Object.values(item).some((candidate) =>
-                String(candidate ?? '')
-                    .toLowerCase()
-                    .includes(String(value).toLowerCase())
-            )
-        }
         return String(item[field] ?? '')
             .toLowerCase()
             .includes(String(value).toLowerCase())
@@ -42,16 +35,13 @@ const matches = (item: Record<string, unknown>, query: PageQuery) => {
 export const createMockResourceService = <K extends ResourceKey>(key: K): ResourceService<ResourceTypeMap[K]> => ({
     async page(query = {}) {
         await beforeRequest()
-        const pageNum = Math.max(1, query.pageNum ?? 1)
+        const pageNo = Math.max(1, query.pageNo ?? 1)
         const pageSize = Math.max(1, query.pageSize ?? 20)
         const filtered = scenario === 'empty' ? [] : getStore(key).filter((item) => matches(item as unknown as Record<string, unknown>, query))
-        const records = filtered.slice((pageNum - 1) * pageSize, pageNum * pageSize)
+        const list = filtered.slice((pageNo - 1) * pageSize, pageNo * pageSize)
         return {
-            records: clone(records),
+            list: clone(list),
             total: filtered.length,
-            current: pageNum,
-            size: pageSize,
-            pages: Math.ceil(filtered.length / pageSize),
         } as PageData<ResourceTypeMap[K]>
     },
     async list(query = {}) {
@@ -99,5 +89,19 @@ export const createMockResourceService = <K extends ResourceKey>(key: K): Resour
             getStore(key).filter((row) => !idSet.has(row.id))
         )
         return true
+    },
+    async exportXls() {
+        await beforeRequest()
+        const blob = new Blob(['Mock 导出：当前为 Mock 模式，未连接真实后端。'], { type: 'application/vnd.ms-excel' })
+        const blobUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = `${key}-mock-导出.xlsx`
+        link.click()
+        URL.revokeObjectURL(blobUrl)
+    },
+    async importXls() {
+        await beforeRequest()
+        return { totalRows: 0, successCount: 0, errorCount: 0, errors: [] }
     },
 })

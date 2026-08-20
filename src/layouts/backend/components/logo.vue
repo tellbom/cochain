@@ -2,8 +2,8 @@
     <div class="layout-logo">
         <span class="brand-mark" aria-hidden="true"><el-icon><Link /></el-icon></span>
         <div v-if="!config.layout.menuCollapse" :style="{ color: config.getColorVal('menuColor') }" class="website-name">
-            <strong>Cochain</strong>
-            <span>采购协同平台</span>
+            <!-- <strong>Cochain</strong> -->
+            <span>外协分包管理系统</span>
         </div>
         <button class="fold" type="button" :aria-label="config.layout.menuCollapse ? '打开导航菜单' : '收起导航菜单'" @click="onMenuCollapse">
             <Icon

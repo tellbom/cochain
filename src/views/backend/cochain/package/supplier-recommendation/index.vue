@@ -4,7 +4,8 @@
         title="供应商推荐结果"
         eyebrow="分包中心"
         description="查看每个工作包的推荐顺序、来源、质量等级与绩效得分。"
-        search-placeholder="搜索供应商、工作包或批次 ID"
+        search-field="supplierName"
+        search-placeholder="搜索供应商名称"
         :columns="columns"
     />
 </template>

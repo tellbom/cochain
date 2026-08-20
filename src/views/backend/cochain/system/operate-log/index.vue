@@ -3,25 +3,45 @@
         resource="systemOperateLogs"
         title="系统操作日志"
         eyebrow="日志审计"
-        description="查看权限码、请求路径、响应状态和请求级登录 IP；日志为只读记录。"
-        search-placeholder="搜索用户、权限码或请求路径"
+        description="查看模块、请求方法、请求路径与结果码；日志为只读记录。"
+        search-field="userId"
+        search-placeholder="搜索用户 ID"
         :columns="columns"
     >
-        <template #actions><el-button @click="exportPlaceholder">导出待绑定</el-button></template>
+        <template #actions
+            ><el-button :loading="exporting" @click="exportData"
+                ><el-icon><Download /></el-icon>导出</el-button
+            ></template
+        >
     </ResourceTablePage>
 </template>
 <script setup lang="ts">
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 import ResourceTablePage, { type DataColumn } from '/@/features/cochain/components/ResourceTablePage.vue'
-const exportPlaceholder = () => ElMessage.info('待绑定：系统日志导出端点和独立导出权限确认后再开放。')
+import { getResourceService } from '/@/features/cochain/services'
+const service = getResourceService('systemOperateLogs')
+const exporting = ref(false)
 const columns: DataColumn[] = [
-    { prop: 'operateTime', label: '操作时间', minWidth: 170 },
-    { prop: 'userid', label: '用户 ID', minWidth: 130 },
-    { prop: 'username', label: '用户名称', minWidth: 140 },
-    { prop: 'permissionCode', label: '权限码', minWidth: 220 },
-    { prop: 'httpMethod', label: '方法' },
-    { prop: 'requestPath', label: '请求路径', minWidth: 240 },
-    { prop: 'responseStatus', label: '响应状态', status: true, tone: (r) => (Number(r.responseStatus) < 400 ? 'success' : 'danger') },
-    { prop: 'loginIp', label: '请求 IP', minWidth: 150 },
+    { prop: 'startTime', label: '操作时间', minWidth: 170 },
+    { prop: 'userId', label: '用户 ID', minWidth: 130 },
+    { prop: 'module', label: '模块', minWidth: 130 },
+    { prop: 'name', label: '操作名', minWidth: 140 },
+    { prop: 'requestMethod', label: '方法', minWidth: 90 },
+    { prop: 'requestUrl', label: '请求路径', minWidth: 240 },
+    { prop: 'resultType', label: '结果', status: true, format: (r) => (r.resultType === 1 ? '成功' : '失败'), tone: (r) => (r.resultType === 1 ? 'success' : 'danger') },
+    { prop: 'resultCode', label: '结果码', minWidth: 90 },
+    { prop: 'userIp', label: '请求 IP', minWidth: 150 },
 ]
+const exportData = async () => {
+    exporting.value = true
+    try {
+        await service.exportXls()
+    } catch (error: any) {
+        ElMessage.error(error?.message || '导出失败')
+    } finally {
+        exporting.value = false
+    }
+}
 </script>

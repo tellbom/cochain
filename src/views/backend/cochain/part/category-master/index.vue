@@ -203,7 +203,7 @@ const configs: Record<TabKey, Config> = {
         resource: 'specialCategories',
         authPath: '/cochain/special/category-config',
         columns: [
-            { prop: 'categoryName', label: '三级品类', width: 210 },
+            { prop: 'categoryId', label: '三级品类', width: 210, format: (r: any) => categoryName(r.categoryId) },
             {
                 prop: 'specialType',
                 label: '特殊类型',
@@ -222,7 +222,6 @@ const configs: Record<TabKey, Config> = {
         ],
         fields: [
             { prop: 'categoryId', label: '品类编号', required: true },
-            { prop: 'categoryName', label: '品类名称', required: true },
             {
                 prop: 'specialType',
                 label: '特殊类型',
@@ -253,17 +252,15 @@ const configs: Record<TabKey, Config> = {
             { prop: 'aircraftModel', label: '机型', width: 160 },
             { prop: 'leftSuffix', label: '左件后缀', width: 130, presentation: 'code', tagKind: 'left' },
             { prop: 'rightSuffix', label: '右件后缀', width: 130, presentation: 'code', tagKind: 'right' },
-            { prop: 'enabled', label: '状态', width: 100, status: true },
-            { prop: 'remark', label: '备注', width: 230 },
+            { prop: 'description', label: '说明', width: 230 },
         ],
         fields: [
             { prop: 'aircraftModel', label: '机型', required: true },
             { prop: 'leftSuffix', label: '左件后缀', required: true },
             { prop: 'rightSuffix', label: '右件后缀', required: true },
-            { prop: 'enabled', label: '启用状态', type: 'switch' },
-            { prop: 'remark', label: '备注', type: 'textarea' },
+            { prop: 'description', label: '说明', type: 'textarea' },
         ],
-        defaults: { enabled: 1, remark: '' },
+        defaults: { description: '' },
     },
     rightManual: {
         label: '左右件人工关系',
@@ -275,15 +272,13 @@ const configs: Record<TabKey, Config> = {
             { prop: 'aircraftModel', label: '机型', width: 120 },
             { prop: 'leftPartDrawingNo', label: '左件图号', width: 220, presentation: 'code', tagKind: 'drawing' },
             { prop: 'rightPartDrawingNo', label: '右件图号', width: 220, presentation: 'code', tagKind: 'drawing' },
-            { prop: 'remark', label: '备注', width: 220 },
         ],
         fields: [
             { prop: 'aircraftModel', label: '机型', required: true },
             { prop: 'leftPartDrawingNo', label: '左件图号', required: true },
             { prop: 'rightPartDrawingNo', label: '右件图号', required: true },
-            { prop: 'remark', label: '备注', type: 'textarea' },
         ],
-        defaults: { remark: '' },
+        defaults: {},
     },
     capacity: {
         label: '工作包容量',
@@ -292,10 +287,10 @@ const configs: Record<TabKey, Config> = {
         resource: 'typePackageConfigs',
         authPath: '/cochain/part/type-package-config',
         columns: [
-            { prop: 'partType', label: '零件类型', width: 180 },
-            { prop: 'maxPartLimit', label: '每包最大零件数', width: 180, presentation: 'metric' },
-            { prop: 'enabled', label: '状态', width: 100, status: true },
-            { prop: 'remark', label: '说明', width: 260 },
+            { prop: 'partType', label: '零件类型', width: 140 },
+            { prop: 'typeLabel', label: '类型说明', width: 160 },
+            { prop: 'maxPartCount', label: '每包最大零件数', width: 160, presentation: 'metric' },
+            { prop: 'sortOrder', label: '排序', width: 90 },
         ],
         fields: [
             {
@@ -304,11 +299,11 @@ const configs: Record<TabKey, Config> = {
                 required: true,
                 options: ['小型', '中型', '大型', '超大型', '其他'].map((value) => ({ label: value, value })),
             },
-            { prop: 'maxPartLimit', label: '每包最大零件数', required: true, type: 'number', min: 1 },
-            { prop: 'enabled', label: '启用状态', type: 'switch' },
-            { prop: 'remark', label: '说明', type: 'textarea' },
+            { prop: 'typeLabel', label: '类型说明' },
+            { prop: 'maxPartCount', label: '每包最大零件数', required: true, type: 'number', min: 1 },
+            { prop: 'sortOrder', label: '排序', type: 'number', min: 0 },
         ],
-        defaults: { enabled: 1, maxPartLimit: 1, remark: '' },
+        defaults: { maxPartCount: 1, sortOrder: 0 },
     },
 }
 const activeTab = ref<TabKey>('categories')
@@ -319,6 +314,8 @@ const loading = ref(false)
 const saving = ref(false)
 const formVisible = ref(false)
 const form = reactive<Record<string, any>>({})
+const categoryLookup = ref<{ id: string; categoryName: string }[]>([])
+const categoryName = (id: string) => categoryLookup.value.find((item) => item.id === id)?.categoryName || id
 const filteredRows = computed(() =>
     !keyword.value ? rows.value : rows.value.filter((row) => Object.values(row).some((value) => String(value ?? '').includes(keyword.value)))
 )
@@ -371,7 +368,10 @@ watch(activeTab, () => {
     keyword.value = ''
     load()
 })
-onMounted(load)
+onMounted(async () => {
+    categoryLookup.value = await getResourceService('categories').list()
+    await load()
+})
 </script>
 
 <style scoped>

@@ -186,7 +186,7 @@ const selectedSupplierRows = computed<CategorySupplierRow[]>(() => {
             )
             return {
                 id: association.id,
-                supplierName: supplier?.supplierName || association.supplierName || '未知供应商',
+                supplierName: supplier?.supplierName || '未知供应商',
                 enabled: supplier?.enabled === 1,
                 qualityLevel: ranking?.qualityLevel || '普通',
                 comprehensiveScore: ranking?.comprehensiveScore,

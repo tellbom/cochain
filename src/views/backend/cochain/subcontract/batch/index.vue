@@ -18,10 +18,11 @@
             </header>
             <div class="figma-card">
                 <form class="figma-search" role="search" @submit.prevent="loadBatches">
-                    <el-input v-model="query.keyword" class="batch-keyword" clearable placeholder="搜索批次编号 / 流程编号"
+                    <el-input v-model="query.batchNo" class="batch-keyword" clearable placeholder="搜索批次编号"
                         ><template #prefix
                             ><el-icon><Search /></el-icon></template
                     ></el-input>
+                    <el-input v-model="query.flowNo" class="batch-keyword" clearable placeholder="搜索流程编号" />
                     <el-select v-model="query.batchStatus" class="batch-status-select" clearable placeholder="全部状态"
                         ><el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value"
                     /></el-select>
@@ -81,7 +82,7 @@
                 <footer class="figma-pagination">
                     <span>共 {{ total }} 条</span><span>{{ query.pageSize }} 条/页</span
                     ><el-pagination
-                        v-model:current-page="query.pageNum"
+                        v-model:current-page="query.pageNo"
                         :page-size="query.pageSize"
                         :total="total"
                         layout="prev, pager, next"
@@ -122,20 +123,34 @@
                             >
                         </div>
                         <div class="workbench-actions">
-                            <el-button v-if="canPackage" v-auth="'package'" @click="advance('PACKAGED')">生成工作包</el-button>
-                            <el-button v-if="canRecommend" v-auth="'recommend'" @click="advance('RECOMMENDED')">生成供应商推荐</el-button>
-                            <el-button v-auth="'run'" :disabled="!canRun" @click="advance('RECOMMENDED')"
+                            <el-button v-if="canPackage" v-auth="'package'" :disabled="advancing" :loading="advancing" @click="handlePackage">生成工作包</el-button>
+                            <el-button v-if="canRecommend" v-auth="'recommend'" :disabled="advancing" :loading="advancing" @click="handleRecommend">生成供应商推荐</el-button>
+                            <el-button v-auth="'run'" :disabled="!canRun || advancing" :loading="advancing" @click="handleRun"
                                 ><el-icon><Lightning /></el-icon>一键编排</el-button
                             >
                             <el-button
                                 v-auth="'export-result'"
-                                :disabled="!['RECOMMENDED', 'COMPLETED'].includes(activeBatch.batchStatus)"
+                                :disabled="!['RECOMMENDED', 'PARTIAL', 'COMPLETED'].includes(activeBatch.batchStatus)"
+                                :loading="exporting"
                                 @click="exportResult"
                                 ><el-icon><Download /></el-icon>导出 Excel</el-button
                             >
                         </div>
                     </div>
                 </header>
+
+                <div v-if="warningBanner" class="package-lock-notice batch-warning-banner">
+                    <el-icon><WarningFilled /></el-icon>
+                    <div>
+                        <strong>{{ activeBatch.batchStatus === 'PARTIAL' ? '推荐不完整' : '存在数量缺口提示' }}</strong>
+                        <p>{{ warningBanner.message }}</p>
+                        <ul v-if="warningBanner.warnings.length">
+                            <li v-for="item in warningBanner.warnings" :key="item.packageId">
+                                {{ item.packageNo }}：需 {{ item.requiredCount }} 家，现有 {{ item.availableCount }} 家，缺口 {{ item.shortageCount }} 家
+                            </li>
+                        </ul>
+                    </div>
+                </div>
 
                 <div v-if="packages.length" class="workbench-layout">
                     <aside class="package-sidebar">
@@ -151,8 +166,10 @@
                             >
                                 <span class="package-card__top"
                                     ><strong>{{ item.packageNo }}</strong
-                                    ><em v-if="item.recommendationStatus">已推荐</em></span
-                                >
+                                    ><em v-if="item.recommendationStatus" :data-recommend-status="item.recommendationStatus">{{
+                                        recommendStatusLabel(item.recommendationStatus)
+                                    }}</em>
+                                </span>
                                 <span class="package-card__category">{{ categoryName(item.categoryId) }}</span>
                                 <span class="package-card__meta"
                                     >零件 {{ item.partCount }}<i>·</i>{{ item.partType }}<b v-if="item.isSpecialCategory">特殊品类</b></span
@@ -201,7 +218,7 @@
                                     推荐结果 ({{ visibleRecommendations.length }})
                                 </button>
                             </nav>
-                            <div v-if="detailTab === 'recommendations' && activeBatch.batchStatus === 'RECOMMENDED'" class="manual-add">
+                            <div v-if="detailTab === 'recommendations' && ['RECOMMENDED', 'PARTIAL'].includes(activeBatch.batchStatus)" class="manual-add">
                                 <span>手动添加</span
                                 ><el-select v-model="manualSupplierId" filterable placeholder="选择供应商…"
                                     ><el-option
@@ -314,23 +331,38 @@
             </div>
         </template>
 
-        <el-dialog v-model="uploadVisible" title="上传分包数据" width="min(620px, 94vw)"
+        <el-dialog v-model="uploadVisible" title="上传分包 Excel" width="min(480px, 94vw)" class="upload-modal"
             ><el-form label-position="top"
-                ><el-form-item label="Excel 文件" required
-                    ><el-upload drag :auto-upload="false" :limit="1" accept=".xlsx,.xls" :on-change="(file) => (uploadFile = file)"
-                        ><el-icon class="upload-icon"><Upload /></el-icon>
-                        <div>拖拽文件到此处，或 <span class="figma-link">点击选择文件</span></div>
-                        <template #tip><div>支持 .xlsx、.xls，单个文件不超过 20 MB</div></template></el-upload
+                ><el-form-item label="选择文件"
+                    ><el-upload
+                        ref="uploadRef"
+                        drag
+                        class="upload-dropzone"
+                        :show-file-list="false"
+                        :auto-upload="false"
+                        :limit="1"
+                        accept=".xlsx,.xls"
+                        :on-change="(file) => (uploadFile = file)"
+                        :on-exceed="handleUploadExceed"
+                        ><div class="upload-dropzone__icon"><el-icon><Upload /></el-icon></div>
+                        <template v-if="uploadFile"><p class="upload-filename">{{ uploadFile.name }}</p></template>
+                        <template v-else
+                            ><p class="upload-hint-primary">点击选择或拖拽 Excel 文件</p>
+                            <p class="upload-hint-secondary">支持 .xlsx / .xls 格式，最大 20 MB</p></template
+                        ></el-upload
                     ></el-form-item
-                >
-                <div class="dialog-grid">
-                    <el-form-item label="机型（可选）"><el-input v-model="uploadForm.aircraftModel" placeholder="用于补全缺失机型" /></el-form-item
-                    ><el-form-item label="操作人（可选）"><el-input v-model="uploadForm.operator" placeholder="默认当前用户" /></el-form-item>
-                </div>
-                <a class="figma-link" href="#" @click.prevent="downloadTemplate">下载 Excel 模板</a></el-form
-            ><template #footer
-                ><el-button @click="uploadVisible = false">取消</el-button
-                ><el-button type="primary" :loading="saving" @click="submitUpload">开始导入</el-button></template
+                ><div class="upload-modal-grid"
+                    ><el-form-item label="机型（选填）"
+                        ><el-select v-model="uploadForm.aircraftModel" placeholder="请选择机型" style="width: 100%"
+                            ><el-option v-for="item in aircraftModelOptions" :key="item" :label="item" :value="item" /></el-select></el-form-item
+                    ><el-form-item label="操作人（选填）"><el-input :model-value="operatorDisplay" disabled /></el-form-item></div
+                ></el-form
+            ><footer class="upload-modal-footer"
+                ><a class="figma-link" href="#" @click.prevent="downloadTemplate">下载导入模板</a
+                ><div class="upload-modal-footer__actions"
+                    ><el-button round @click="uploadVisible = false">取消</el-button
+                    ><el-button round type="primary" :loading="saving" :disabled="!uploadFile" @click="submitUpload">开始导入</el-button></div
+                ></footer
             ></el-dialog
         >
         <el-dialog v-model="fetchVisible" title="从全流程系统抓取" width="min(520px, 94vw)"
@@ -341,6 +373,16 @@
                 ><el-button @click="fetchVisible = false">取消</el-button
                 ><el-button type="primary" :loading="saving" @click="submitFetch">开始抓取</el-button></template
             ></el-dialog
+        >
+        <el-dialog v-model="importResultVisible" title="导入结果" width="min(600px, 94vw)"
+            ><div v-if="importResult" class="import-summary">
+                <div><strong>{{ importResult.totalRows }}</strong><span>总行数</span></div>
+                <div class="success"><strong>{{ importResult.successCount }}</strong><span>成功</span></div>
+                <div class="failed"><strong>{{ importResult.errorCount }}</strong><span>失败</span></div>
+            </div>
+            <el-table v-if="importResult?.errors.length" :data="importResult.errors"
+                ><el-table-column prop="rowNo" label="行号" width="90" /><el-table-column prop="message" label="失败原因" /></el-table
+            ><template #footer><el-button type="primary" @click="importResultVisible = false">知道了</el-button></template></el-dialog
         >
         <el-dialog v-model="partVisible" title="零件详情" width="min(680px, 94vw)"
             ><dl v-if="currentPart" class="figma-info-grid">
@@ -402,7 +444,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox, type UploadFile } from 'element-plus'
+import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadProps, type UploadRawFile } from 'element-plus'
 import {
     ArrowLeft,
     ArrowRight,
@@ -416,32 +458,54 @@ import {
     Search,
     Switch,
     Upload,
+    WarningFilled,
 } from '@element-plus/icons-vue'
-import type { BatchPartVO, BatchStatus, BatchVO, PackageVO, SupplierRecommendationVO, SupplierVO } from '/@/features/cochain/contracts'
+import type {
+    BatchImportResultVO,
+    BatchPartVO,
+    BatchStatus,
+    BatchVO,
+    CategoryMasterVO,
+    PackageVO,
+    RecommendationWarning,
+    SupplierRecommendationVO,
+    SupplierVO,
+} from '/@/features/cochain/contracts'
 import { getResourceService } from '/@/features/cochain/services'
+import { subcontractBatchApi } from '/@/features/cochain/services/subcontractBatch'
+import { useAdminInfo } from '/@/stores/adminInfo'
+
+const adminInfo = useAdminInfo()
+const operatorDisplay = computed(() => adminInfo.userid || adminInfo.username || '—')
+const aircraftModelOptions = ['C919', 'ARJ21', 'CR929', '通用']
 
 const batchService = getResourceService('batches')
 const packageService = getResourceService('packages')
 const partService = getResourceService('batchParts')
 const recommendationService = getResourceService('recommendations')
 const supplierService = getResourceService('suppliers')
-const query = reactive({ keyword: '', batchStatus: undefined as BatchStatus | undefined, operator: '', pageNum: 1, pageSize: 10 })
+const categoryService = getResourceService('categories')
+const query = reactive({ batchNo: '', flowNo: '', batchStatus: undefined as BatchStatus | undefined, operator: '', pageNo: 1, pageSize: 10 })
 const statusOptions = [
     { value: 'DRAFT', label: '草稿' },
     { value: 'DATA_READY', label: '数据就绪' },
     { value: 'PACKAGED', label: '已分包' },
     { value: 'RECOMMENDED', label: '已推荐' },
+    { value: 'PARTIAL', label: '部分推荐' },
     { value: 'COMPLETED', label: '已完成' },
 ] as const
 const batches = ref<BatchVO[]>([])
 const total = ref(0)
 const loading = ref(false)
 const saving = ref(false)
+const advancing = ref(false)
+const exporting = ref(false)
 const activeBatch = ref<BatchVO>()
 const packages = ref<PackageVO[]>([])
 const parts = ref<BatchPartVO[]>([])
 const recommendations = ref<SupplierRecommendationVO[]>([])
 const suppliers = ref<SupplierVO[]>([])
+const categories = ref<CategoryMasterVO[]>([])
 const selectedPackage = ref<PackageVO>()
 const detailTab = ref<'parts' | 'recommendations'>('parts')
 const uploadVisible = ref(false)
@@ -449,13 +513,17 @@ const fetchVisible = ref(false)
 const partVisible = ref(false)
 const moveVisible = ref(false)
 const manualVisible = ref(false)
+const importResultVisible = ref(false)
+const uploadRef = ref<UploadInstance>()
 const uploadFile = ref<UploadFile>()
-const uploadForm = reactive({ aircraftModel: '', operator: '' })
+const uploadForm = reactive({ aircraftModel: '' })
 const fetchFlowNo = ref('')
 const currentPart = ref<BatchPartVO>()
 const movePart = ref<BatchPartVO>()
 const movePackageId = ref('')
 const manualSupplierId = ref('')
+const importResult = ref<BatchImportResultVO>()
+const warningBanner = ref<{ message: string; warnings: RecommendationWarning[] } | null>(null)
 const visibleParts = computed(() => parts.value.filter((item) => item.packageId === selectedPackage.value?.id))
 const visibleRecommendations = computed(() => recommendations.value.filter((item) => item.packageId === selectedPackage.value?.id))
 const availableManualSuppliers = computed(() =>
@@ -464,60 +532,109 @@ const availableManualSuppliers = computed(() =>
 const canPackage = computed(() => activeBatch.value?.batchStatus === 'DATA_READY')
 const canRecommend = computed(() => activeBatch.value?.batchStatus === 'PACKAGED')
 const canRun = computed(() => !!activeBatch.value && activeBatch.value.batchStatus !== 'DRAFT')
-const lockedBatch = computed(() => !!activeBatch.value && ['RECOMMENDED', 'COMPLETED'].includes(activeBatch.value.batchStatus))
+const lockedBatch = computed(() => !!activeBatch.value && ['RECOMMENDED', 'PARTIAL', 'COMPLETED'].includes(activeBatch.value.batchStatus))
 const statusLabel = (status: BatchStatus) => statusOptions.find((item) => item.value === status)?.label || status
 const sourceLabel = (source: string) =>
-    ({ HISTORY: '历史供应商', QUALITY_ROUND: '优质轮询', NORMAL_ROUND: '普通轮询', ALL_CATEGORY: '全品类补位' })[source] || source
-const categoryName = (id: string) =>
-    ({ cat001: '铝合金钣金件', cat002: '钛合金机加工件', cat003: '复合材料蒙皮', cat004: '标准紧固件', cat005: '橡胶密封件' })[id] || id
+    ({
+        HISTORY: '历史供应商',
+        QUALITY_ROUND: '优质轮询',
+        NORMAL_ROUND: '普通轮询',
+        CATEGORY_CAPABILITY: '品类能力补充',
+        ALL_CATEGORY: '全品类补位',
+    })[source] || source
+const recommendStatusLabel = (status: string) =>
+    ({ PENDING: '待推荐', RECOMMENDED: '已推荐', PARTIAL: '推荐不足', FAILED: '推荐失败' })[status] || status
+const categoryName = (id: string) => categories.value.find((item) => item.id === id)?.categoryName || id
 const loadBatches = async () => {
     loading.value = true
     try {
         const result = await batchService.page(query)
-        batches.value = result.records
+        batches.value = result.list
         total.value = result.total
     } finally {
         loading.value = false
     }
 }
 const resetQuery = () => {
-    Object.assign(query, { keyword: '', batchStatus: undefined, operator: '', pageNum: 1 })
+    Object.assign(query, { batchNo: '', flowNo: '', batchStatus: undefined, operator: '', pageNo: 1 })
     loadBatches()
 }
 const enterWorkbench = async (row: BatchVO) => {
     activeBatch.value = { ...row }
-    const [packageRows, partRows, recRows, supplierRows] = await Promise.all([
+    warningBanner.value = null
+    const [packageRows, partRows, recRows, supplierRows, categoryRows] = await Promise.all([
         packageService.list({ batchId: row.id } as any),
         partService.list({ batchId: row.id } as any),
         recommendationService.list({ batchId: row.id } as any),
         supplierService.list({ enabled: 1 } as any),
+        categoryService.list(),
     ])
     packages.value = packageRows
     parts.value = partRows
     recommendations.value = recRows
     suppliers.value = supplierRows
+    categories.value = categoryRows
     selectedPackage.value = packageRows[0]
 }
 const leaveWorkbench = () => {
     activeBatch.value = undefined
     selectedPackage.value = undefined
+    warningBanner.value = null
     loadBatches()
 }
 const selectPackage = (item: PackageVO) => {
     selectedPackage.value = item
     detailTab.value = 'parts'
 }
-const advance = async (next: BatchStatus) => {
+const handlePackage = async () => {
     if (!activeBatch.value) return
-    const updated = {
-        ...activeBatch.value,
-        batchStatus: next,
-        totalPackageCount:
-            next === 'PACKAGED' && !activeBatch.value.totalPackageCount ? Math.max(1, packages.value.length) : activeBatch.value.totalPackageCount,
+    advancing.value = true
+    try {
+        const { packages: packageRows, message } = await subcontractBatchApi.packageBatch(activeBatch.value.id)
+        packages.value = packageRows
+        recommendations.value = []
+        selectedPackage.value = packageRows[0]
+        activeBatch.value = await batchService.get(activeBatch.value.id)
+        warningBanner.value = message ? { message, warnings: [] } : null
+        ElMessage.success('工作包已生成')
+    } finally {
+        advancing.value = false
     }
-    await batchService.update(updated)
-    activeBatch.value = updated
-    ElMessage.success(next === 'PACKAGED' ? '工作包已生成' : next === 'RECOMMENDED' ? '供应商推荐已生成' : '编排已完成')
+}
+const handleRecommend = async () => {
+    if (!activeBatch.value) return
+    advancing.value = true
+    try {
+        const { recommendations: recRows, message } = await subcontractBatchApi.recommendBatch(activeBatch.value.id)
+        recommendations.value = recRows
+        const detail = await batchService.get(activeBatch.value.id)
+        activeBatch.value = detail
+        warningBanner.value = message ? { message, warnings: [] } : null
+        ElMessage.success(detail.batchStatus === 'PARTIAL' ? '推荐已生成，但存在数量缺口' : '供应商推荐已生成')
+    } finally {
+        advancing.value = false
+    }
+}
+const handleRun = async () => {
+    if (!activeBatch.value) return
+    advancing.value = true
+    try {
+        const result = await subcontractBatchApi.runBatch(activeBatch.value.id)
+        const [packageRows, recRows] = await Promise.all([
+            packageService.list({ batchId: activeBatch.value.id } as any),
+            recommendationService.list({ batchId: activeBatch.value.id } as any),
+        ])
+        packages.value = packageRows
+        recommendations.value = recRows
+        selectedPackage.value = packageRows[0]
+        activeBatch.value = { ...activeBatch.value, batchStatus: result.batchStatus, totalPackageCount: result.packageCount }
+        warningBanner.value = result.hasWarning
+            ? { message: result.warnings.map((item) => item.message).join('；') || '存在供应商数量缺口', warnings: result.warnings }
+            : null
+        ElMessage.success(result.hasWarning ? '编排完成，但存在数量缺口' : '编排已完成')
+    } finally {
+        advancing.value = false
+    }
 }
 const removeBatch = async (row: BatchVO) => {
     await ElMessageBox.confirm(`确认删除批次 ${row.batchNo}？`, '删除批次', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
@@ -527,24 +644,28 @@ const removeBatch = async (row: BatchVO) => {
 }
 const openUpload = () => {
     uploadFile.value = undefined
-    Object.assign(uploadForm, { aircraftModel: '', operator: '' })
+    uploadRef.value?.clearFiles()
+    Object.assign(uploadForm, { aircraftModel: '' })
     uploadVisible.value = true
 }
+const handleUploadExceed: UploadProps['onExceed'] = (files) => {
+    uploadRef.value?.clearFiles()
+    const file = files[0] as UploadRawFile
+    file.uid = genFileId()
+    uploadRef.value?.handleStart(file)
+}
 const submitUpload = async () => {
-    if (!uploadFile.value) return ElMessage.warning('请选择 Excel 文件')
+    if (!uploadFile.value?.raw) return ElMessage.warning('请选择 Excel 文件')
     saving.value = true
     try {
-        await batchService.create({
-            batchNo: `SUB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-3)}`,
-            flowNo: '',
-            batchStatus: 'DATA_READY',
-            uploadFileName: uploadFile.value.name,
-            totalPartCount: 102,
-            totalPackageCount: 0,
-            operator: uploadForm.operator || '当前用户',
+        const result = await subcontractBatchApi.uploadBatch(uploadFile.value.raw, {
+            aircraftModel: uploadForm.aircraftModel || undefined,
+            operator: adminInfo.userid || undefined,
         })
         uploadVisible.value = false
-        ElMessage.success('导入完成：104 行中 102 行成功')
+        importResult.value = result
+        if (result.errorCount > 0) importResultVisible.value = true
+        else ElMessage.success(`导入完成：${result.totalRows} 行中 ${result.successCount} 行成功`)
         loadBatches()
     } finally {
         saving.value = false
@@ -554,39 +675,29 @@ const submitFetch = async () => {
     if (!fetchFlowNo.value.trim()) return ElMessage.warning('请输入流程编号')
     saving.value = true
     try {
-        await batchService.create({
-            batchNo: `SUB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-3)}`,
-            flowNo: fetchFlowNo.value,
-            batchStatus: 'DATA_READY',
-            uploadFileName: '全流程系统抓取',
-            totalPartCount: 68,
-            totalPackageCount: 0,
-            operator: '当前用户',
-        })
+        const result = await subcontractBatchApi.fetchBatch(fetchFlowNo.value.trim())
         fetchVisible.value = false
-        ElMessage.success('流程数据抓取成功')
+        importResult.value = result
+        if (result.errorCount > 0) importResultVisible.value = true
+        else ElMessage.success(`抓取完成：${result.totalRows} 行中 ${result.successCount} 行成功`)
         loadBatches()
     } finally {
         saving.value = false
     }
 }
 const downloadTemplate = () => {
-    const url = URL.createObjectURL(new Blob(['零件图号,机型,零件名称,材料'], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = '分包数据模板.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    ElMessage.info('接口文档未提供分包模板下载端点，请使用标准联调模板文件《待上传分包测试数据_下料尺寸_20260814.xlsx》（36 列）')
 }
-const exportResult = () => {
+const exportResult = async () => {
     if (!activeBatch.value) return
-    const url = URL.createObjectURL(new Blob([`批次编号,${activeBatch.value.batchNo}`], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${activeBatch.value.batchNo}-推荐结果.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    ElMessage.success('结果已导出')
+    exporting.value = true
+    try {
+        await subcontractBatchApi.exportBatchResult(activeBatch.value.id, activeBatch.value.batchNo)
+        activeBatch.value = await batchService.get(activeBatch.value.id)
+        ElMessage.success('结果已导出')
+    } finally {
+        exporting.value = false
+    }
 }
 const showPart = (row: BatchPartVO) => {
     currentPart.value = row
@@ -627,6 +738,7 @@ const addManualSupplier = async () => {
 onMounted(loadBatches)
 </script>
 
+
 <style scoped>
 .figma-page__actions .el-button:first-child {
     width: 158px;
@@ -635,7 +747,7 @@ onMounted(loadBatches)
     width: 114px;
 }
 .batch-keyword {
-    width: 224px !important;
+    width: 168px !important;
 }
 .batch-status-select {
     width: 98px !important;
@@ -718,27 +830,99 @@ onMounted(loadBatches)
     padding: 10px 18px;
     border-bottom: 1px solid #f0f0f0;
 }
-.dialog-grid {
+.upload-dropzone__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    color: #0066cc;
+    font-size: 22px;
+    transition: transform 300ms ease;
+}
+.upload-modal :deep(.el-upload),
+.upload-modal :deep(.el-upload-dragger) {
+    width: 100%;
+}
+.upload-modal :deep(.el-upload-dragger) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 18px;
+    border: 1px dashed #d2d2d7;
+    border-radius: 14px;
+    background: #f5f5f7;
+    transition:
+        border-color 300ms ease,
+        background-color 300ms ease;
+}
+.upload-modal :deep(.el-upload-dragger:hover),
+.upload-modal :deep(.el-upload-dragger.is-dragover) {
+    border-color: rgba(0, 102, 204, 0.4);
+    background: rgba(0, 102, 204, 0.05);
+}
+.upload-modal :deep(.el-upload-dragger:hover) .upload-dropzone__icon {
+    transform: scale(1.1);
+}
+.upload-filename {
+    margin: 0;
+    color: #1d1d1f;
+    font-size: 14px;
+    font-weight: 500;
+}
+.upload-hint-primary {
+    margin: 0 0 4px;
+    color: #1d1d1f;
+    font-size: 14px;
+    font-weight: 500;
+}
+.upload-hint-secondary {
+    margin: 0;
+    color: #86868b;
+    font-size: 12px;
+}
+.upload-modal-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
-.upload-icon {
-    margin-bottom: 8px;
-    color: #0066cc;
-    font-size: 28px;
+.upload-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(210, 210, 215, 0.5);
 }
-:deep(.el-upload),
-:deep(.el-upload-dragger) {
-    width: 100%;
+.upload-modal-footer__actions {
+    display: flex;
+    gap: 10px;
 }
-:deep(.el-upload-dragger) {
-    padding: 30px 18px;
-    border-radius: 10px;
-    background: #fafafc;
+.upload-modal-footer__actions .el-button {
+    min-height: 34px;
+    padding-inline: 18px;
+    border: 0;
 }
-@media (max-width: 768px) {
-    .dialog-grid {
+.upload-modal-footer__actions .el-button:first-child {
+    background: #f5f5f7;
+    color: #1d1d1f;
+}
+.upload-modal-footer__actions .el-button:first-child:hover {
+    background: #e8e8ed;
+}
+.upload-modal-footer__actions .el-button--primary.is-disabled,
+.upload-modal-footer__actions .el-button--primary.is-disabled:hover {
+    background: #d2d2d7;
+    color: #86868b;
+    border-color: #d2d2d7;
+}
+@media (max-width: 480px) {
+    .upload-modal-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -836,11 +1020,11 @@ onMounted(loadBatches)
 
 .workbench-layout {
     display: grid;
-    grid-template-columns: 270px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     min-height: 720px;
 }
 .package-sidebar {
-    border-right: 1px solid #e5e5e7;
+    border-right: 1px solid #ebebeb;
     background: #fff;
 }
 .package-sidebar__title {
@@ -860,8 +1044,8 @@ onMounted(loadBatches)
     gap: 7px;
     width: 100%;
     padding: 14px;
-    border: 1px solid #dedee1;
-    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
     background: #fff;
     color: #1d1d1f;
     font: inherit;
@@ -879,8 +1063,8 @@ onMounted(loadBatches)
     outline-offset: 2px;
 }
 .package-card.is-active {
-    border-color: #0071e3;
-    background: #e8f2fc;
+    border-color: #0066cc;
+    background: #e8f1fb;
 }
 .package-card__top {
     justify-content: space-between;
@@ -907,6 +1091,18 @@ onMounted(loadBatches)
     font-size: 10px;
     font-style: normal;
     font-weight: 550;
+}
+.package-card__top em[data-recommend-status='PENDING'] {
+    background: #f1f1f3;
+    color: #6e6e73;
+}
+.package-card__top em[data-recommend-status='PARTIAL'] {
+    background: #fff4ed;
+    color: #c4320a;
+}
+.package-card__top em[data-recommend-status='FAILED'] {
+    background: #fef3f2;
+    color: #b42318;
 }
 .package-card__category {
     color: #555;
@@ -1060,6 +1256,33 @@ onMounted(loadBatches)
     color: #b54708;
     font-size: 12px;
 }
+.batch-warning-banner {
+    align-items: flex-start;
+    margin: 16px 26px 0;
+    padding: 14px 16px;
+    border-color: #f0b090;
+    background: #fff4ed;
+    color: #c4320a;
+}
+.batch-warning-banner .el-icon {
+    margin-top: 2px;
+    font-size: 15px;
+}
+.batch-warning-banner strong {
+    font-size: 13px;
+    font-weight: 650;
+}
+.batch-warning-banner p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.batch-warning-banner ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 12px;
+    line-height: 1.7;
+}
 .batch-workbench :deep(.workbench-table-card .el-table th.el-table__cell) {
     height: 48px;
 }
@@ -1151,6 +1374,37 @@ onMounted(loadBatches)
     border-color: #f5c77e;
     background: #fff3e0;
     color: #b54708;
+}
+.recommend-source[data-source='CATEGORY_CAPABILITY'] {
+    border-color: #d8bdf5;
+    background: #f3eaff;
+    color: #7030c0;
+}
+.import-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.import-summary > div {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 10px;
+    background: #fafafc;
+}
+.import-summary strong {
+    font-size: 24px;
+}
+.import-summary span {
+    color: #7a7a7a;
+    font-size: 12px;
+}
+.import-summary .success strong {
+    color: #067647;
+}
+.import-summary .failed strong {
+    color: #b42318;
 }
 .recommend-quality {
     color: #7a7a7a;

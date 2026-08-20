@@ -15,16 +15,10 @@
 import ManagedResourcePage, { type FormField } from '/@/features/cochain/components/ManagedResourcePage.vue'
 import type { DataColumn } from '/@/features/cochain/components/ResourceTablePage.vue'
 const columns: DataColumn[] = [
-    { prop: 'partType', label: '零件类型', minWidth: 160 },
-    { prop: 'maxPartLimit', label: '容量上限' },
-    {
-        prop: 'enabled',
-        label: '状态',
-        status: true,
-        format: (r) => (r.enabled === 1 ? '启用' : '停用'),
-        tone: (r) => (r.enabled === 1 ? 'success' : 'neutral'),
-    },
-    { prop: 'remark', label: '备注', minWidth: 260 },
+    { prop: 'partType', label: '零件类型', minWidth: 120 },
+    { prop: 'typeLabel', label: '类型说明', minWidth: 160 },
+    { prop: 'maxPartCount', label: '容量上限' },
+    { prop: 'sortOrder', label: '排序' },
 ]
 const fields: FormField[] = [
     {
@@ -34,10 +28,10 @@ const fields: FormField[] = [
         required: true,
         options: ['小型', '中型', '大型', '超大型', '其他'].map((v) => ({ label: v, value: v })),
     },
-    { prop: 'maxPartLimit', label: '容量上限', type: 'number', min: 1, required: true },
-    { prop: 'enabled', label: '启用状态', type: 'switch' },
-    { prop: 'remark', label: '备注', type: 'textarea' },
+    { prop: 'typeLabel', label: '类型说明' },
+    { prop: 'maxPartCount', label: '容量上限', type: 'number', min: 1, required: true },
+    { prop: 'sortOrder', label: '排序', type: 'number', min: 0 },
 ]
 const validate = (form: Record<string, any>) =>
-    !Number.isInteger(Number(form.maxPartLimit)) || Number(form.maxPartLimit) <= 0 ? '容量上限必须为正整数' : undefined
+    !Number.isInteger(Number(form.maxPartCount)) || Number(form.maxPartCount) <= 0 ? '容量上限必须为正整数' : undefined
 </script>
