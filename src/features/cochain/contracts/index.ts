@@ -401,6 +401,11 @@ export interface CategoryImportResultVO {
     errors: CategoryImportRowError[]
 }
 
+export interface BatchStatusOptionVO {
+    label: string
+    value: BatchStatus
+}
+
 export type ResourceKey =
     | 'batches'
     | 'batchParts'

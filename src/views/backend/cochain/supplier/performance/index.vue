@@ -41,7 +41,7 @@
                     ><el-icon><Refresh /></el-icon>重置</el-button
                 >
             </form>
-            <el-table v-if="activeTab === 'performance'" v-loading="loading" :data="filteredPerformances" row-key="id">
+            <el-table v-if="activeTab === 'performance'" v-loading="loading" :data="pagedPerformances" row-key="id">
                 <el-table-column label="供应商名称" min-width="240"
                     ><template #default="{ row }">{{ supplierName(row.supplierId) }}</template></el-table-column
                 ><el-table-column label="绩效月份" width="110"
@@ -68,7 +68,7 @@
                     ></el-table-column
                 >
             </el-table>
-            <el-table v-else v-loading="loading" :data="filteredRankings" row-key="id">
+            <el-table v-else v-loading="loading" :data="pagedRankings" row-key="id">
                 <el-table-column label="三级品类" min-width="190"
                     ><template #default="{ row }">{{ categoryName(row.categoryId) }}</template></el-table-column
                 ><el-table-column label="排名" width="124" align="center"
@@ -99,8 +99,9 @@
             <footer class="figma-pagination">
                 <span>共 {{ activeTab === 'performance' ? filteredPerformances.length : filteredRankings.length }} 条记录</span
                 ><el-pagination
+                    v-model:current-page="currentPage"
                     :total="activeTab === 'performance' ? filteredPerformances.length : filteredRankings.length"
-                    :page-size="20"
+                    :page-size="PAGE_SIZE"
                     layout="prev, pager, next"
                 />
             </footer>
@@ -172,6 +173,8 @@ const year = ref<number>()
 const month = ref<number>()
 const categoryId = ref('')
 const qualityLevel = ref('')
+const currentPage = ref(1)
+const PAGE_SIZE = 20
 const uploadVisible = ref(false)
 const resultVisible = ref(false)
 const uploadRef = ref<UploadInstance>()
@@ -199,6 +202,14 @@ const filteredRankings = computed(() =>
             (!qualityLevel.value || row.qualityLevel === qualityLevel.value)
     )
 )
+const pagedPerformances = computed(() => {
+    const start = (currentPage.value - 1) * PAGE_SIZE
+    return filteredPerformances.value.slice(start, start + PAGE_SIZE)
+})
+const pagedRankings = computed(() => {
+    const start = (currentPage.value - 1) * PAGE_SIZE
+    return filteredRankings.value.slice(start, start + PAGE_SIZE)
+})
 const load = async () => {
     loading.value = true
     try {
@@ -222,6 +233,7 @@ const reset = () => {
     month.value = undefined
     categoryId.value = ''
     qualityLevel.value = ''
+    currentPage.value = 1
 }
 const openUpload = () => {
     file.value = undefined
@@ -267,6 +279,9 @@ const downloadTemplate = () => {
     URL.revokeObjectURL(url)
 }
 watch(activeTab, reset)
+watch([keyword, year, month, categoryId, qualityLevel], () => {
+    currentPage.value = 1
+})
 onMounted(load)
 </script>
 

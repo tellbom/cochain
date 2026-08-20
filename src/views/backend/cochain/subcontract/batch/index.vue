@@ -93,7 +93,7 @@
         </template>
 
         <template v-else>
-            <div class="batch-workbench">
+            <div v-loading="workbenchLoading" class="batch-workbench">
                 <header class="workbench-topbar">
                     <button class="back-button" type="button" @click="leaveWorkbench">
                         <el-icon><ArrowLeft /></el-icon>返回批次列表
@@ -155,9 +155,14 @@
                 <div v-if="packages.length" class="workbench-layout">
                     <aside class="package-sidebar">
                         <div class="package-sidebar__title">工作包列表 ({{ packages.length }})</div>
+                        <div class="package-sidebar__search">
+                            <el-input v-model="packageSearchKeyword" clearable placeholder="搜索工作包编号 / 品类" size="small"
+                                ><template #prefix><el-icon><Search /></el-icon></template></el-input
+                            >
+                        </div>
                         <div class="package-list">
                             <button
-                                v-for="item in packages"
+                                v-for="item in filteredPackages"
                                 :key="item.id"
                                 class="package-card"
                                 :class="{ 'is-active': selectedPackage?.id === item.id }"
@@ -175,6 +180,7 @@
                                     >零件 {{ item.partCount }}<i>·</i>{{ item.partType }}<b v-if="item.isSpecialCategory">特殊品类</b></span
                                 >
                             </button>
+                            <div v-if="!filteredPackages.length" class="empty-copy">未找到匹配的工作包</div>
                         </div>
                     </aside>
 
@@ -215,7 +221,7 @@
                                     type="button"
                                     @click="detailTab = 'recommendations'"
                                 >
-                                    推荐结果 ({{ visibleRecommendations.length }})
+                                    推荐结果 ({{ packageRecommendations.length }})
                                 </button>
                             </nav>
                             <div v-if="detailTab === 'recommendations' && ['RECOMMENDED', 'PARTIAL'].includes(activeBatch.batchStatus)" class="manual-add">
@@ -236,98 +242,117 @@
                             <div v-if="lockedBatch" class="package-lock-notice">
                                 <el-icon><Switch /></el-icon>批次已处于【{{ statusLabel(activeBatch.batchStatus) }}】状态，不允许执行移包操作。
                             </div>
+                            <div v-else-if="selectedParts.length" class="batch-move-banner">
+                                <span>已选 {{ selectedParts.length }} 个零件</span>
+                                <el-button type="primary" round size="small" @click="openBatchMove"
+                                    ><el-icon><Switch /></el-icon>批量移动</el-button
+                                ><el-button text size="small" @click="clearPartSelection">取消选择</el-button>
+                            </div>
                             <section class="workbench-table-card">
-                                <el-table :data="visibleParts" row-key="id">
-                                    <el-table-column prop="seqNo" label="序号" width="54" align="center" />
-                                    <el-table-column label="零件图号" min-width="135"
-                                        ><template #default="{ row }"
-                                            ><span class="part-drawing-no">{{ row.partDrawingNo }}</span></template
-                                        ></el-table-column
-                                    >
-                                    <el-table-column label="零件名称" min-width="120"
-                                        ><template #default="{ row }"
-                                            ><strong class="part-name">{{ row.partName }}</strong></template
-                                        ></el-table-column
-                                    >
-                                    <el-table-column prop="materialType" label="材料类型" width="90" />
-                                    <el-table-column label="尺寸（长×宽）" width="120"
-                                        ><template #default="{ row }"
-                                            ><span class="part-size">{{ row.lengthValue }} × {{ row.widthValue }} mm</span></template
-                                        ></el-table-column
-                                    >
-                                    <el-table-column label="套裁信息" width="100"
-                                        ><template #default="{ row }"
-                                            ><span v-if="row.nestingInfo" class="nesting-tag">{{ row.nestingInfo }}</span
-                                            ><span v-else class="empty-value">—</span></template
-                                        ></el-table-column
-                                    >
-                                    <el-table-column label="历史供应商" min-width="140" show-overflow-tooltip
-                                        ><template #default="{ row }"
-                                            ><span class="history-suppliers">{{
-                                                [row.historySupplier1, row.historySupplier2, row.historySupplier3].filter(Boolean).join('、') || '—'
-                                            }}</span></template
-                                        ></el-table-column
-                                    >
-                                    <el-table-column label="操作" width="82" align="center"
-                                        ><template #default="{ row }"
-                                            ><el-button link type="primary" @click="showPart(row)"
-                                                ><el-icon><InfoFilled /></el-icon>详情</el-button
-                                            ><el-button v-if="!lockedBatch" link type="primary" @click="openMove(row)">移动</el-button></template
-                                        ></el-table-column
-                                    >
-                                    <template #empty><div class="empty-copy">当前工作包暂无零件数据</div></template>
-                                </el-table>
-                                <footer class="workbench-table-footer">
-                                    <span>共 {{ visibleParts.length }} 条</span><span>8 条/页</span
-                                    ><el-pagination :total="visibleParts.length" :page-size="8" layout="prev, pager, next" />
-                                </footer>
+                                <el-skeleton v-if="packageDetailLoading" :rows="6" animated class="detail-skeleton" />
+                                <template v-else>
+                                    <el-table ref="partsTableRef" :data="packageParts" row-key="id" @selection-change="handlePartSelectionChange">
+                                        <el-table-column v-if="!lockedBatch" type="selection" width="42" align="center" />
+                                        <el-table-column prop="seqNo" label="序号" width="54" align="center" />
+                                        <el-table-column label="零件图号" min-width="135"
+                                            ><template #default="{ row }"
+                                                ><span class="part-drawing-no">{{ row.partDrawingNo }}</span></template
+                                            ></el-table-column
+                                        >
+                                        <el-table-column label="零件名称" min-width="120"
+                                            ><template #default="{ row }"
+                                                ><strong class="part-name">{{ row.partName }}</strong></template
+                                            ></el-table-column
+                                        >
+                                        <el-table-column prop="materialType" label="材料类型" width="90" />
+                                        <el-table-column label="尺寸（长×宽）" width="120"
+                                            ><template #default="{ row }"
+                                                ><span class="part-size">{{ row.lengthValue }} × {{ row.widthValue }} mm</span></template
+                                            ></el-table-column
+                                        >
+                                        <el-table-column label="套裁信息" width="100"
+                                            ><template #default="{ row }"
+                                                ><span v-if="row.nestingInfo" class="nesting-tag">{{ row.nestingInfo }}</span
+                                                ><span v-else class="empty-value">—</span></template
+                                            ></el-table-column
+                                        >
+                                        <el-table-column label="历史供应商" min-width="140" show-overflow-tooltip
+                                            ><template #default="{ row }"
+                                                ><span class="history-suppliers">{{
+                                                    [row.historySupplier1, row.historySupplier2, row.historySupplier3].filter(Boolean).join('、') || '—'
+                                                }}</span></template
+                                            ></el-table-column
+                                        >
+                                        <el-table-column label="操作" width="82" align="center"
+                                            ><template #default="{ row }"
+                                                ><el-button link type="primary" @click="showPart(row)"
+                                                    ><el-icon><InfoFilled /></el-icon>详情</el-button
+                                                ><el-button v-if="!lockedBatch" link type="primary" @click="openMove(row)">移动</el-button></template
+                                            ></el-table-column
+                                        >
+                                        <template #empty><div class="empty-copy">当前工作包暂无零件数据</div></template>
+                                    </el-table>
+                                    <footer class="workbench-table-footer">
+                                        <span>共 {{ packageParts.length }} 条</span><span>8 条/页</span
+                                        ><el-pagination :total="packageParts.length" :page-size="8" layout="prev, pager, next" />
+                                    </footer>
+                                </template>
                             </section>
                         </template>
 
                         <section v-else class="workbench-table-card recommendation-table-card">
-                            <el-table :data="visibleRecommendations" row-key="id">
-                                <el-table-column label="推荐顺序" width="130" align="center"
-                                    ><template #default="{ row }"
-                                        ><span class="recommend-order" :class="{ 'is-leading': row.recommendOrder <= 2 }">{{
-                                            row.recommendOrder
-                                        }}</span></template
-                                    ></el-table-column
-                                >
-                                <el-table-column label="供应商名称" min-width="220"
-                                    ><template #default="{ row }"
-                                        ><strong class="recommend-supplier">{{ row.supplierName }}</strong></template
-                                    ></el-table-column
-                                >
-                                <el-table-column label="推荐来源" min-width="150"
-                                    ><template #default="{ row }"
-                                        ><span class="recommend-source" :data-source="row.recommendSource">{{
-                                            sourceLabel(row.recommendSource)
-                                        }}</span></template
-                                    ></el-table-column
-                                >
-                                <el-table-column label="质量等级" width="120" align="center"
-                                    ><template #default="{ row }"
-                                        ><strong class="recommend-quality" :data-level="row.qualityLevel">{{ row.qualityLevel }}</strong></template
-                                    ></el-table-column
-                                >
-                                <el-table-column label="绩效得分" width="130" align="right"
-                                    ><template #default="{ row }"
-                                        ><strong class="recommend-score">{{ row.performanceScore.toFixed(1) }}</strong></template
-                                    ></el-table-column
-                                >
-                                <el-table-column label="操作" width="92" align="center"><template #default>—</template></el-table-column>
-                                <template #empty><div class="empty-copy">暂无推荐结果</div></template>
-                            </el-table>
-                            <footer class="workbench-table-footer">
-                                <span>共 {{ visibleRecommendations.length }} 条</span><span>8 条/页</span
-                                ><el-pagination :total="visibleRecommendations.length" :page-size="8" layout="prev, pager, next" />
-                            </footer>
+                            <el-skeleton v-if="packageDetailLoading" :rows="6" animated class="detail-skeleton" />
+                            <template v-else>
+                                <el-table :data="packageRecommendations" row-key="id">
+                                    <el-table-column label="推荐顺序" width="130" align="center"
+                                        ><template #default="{ row }"
+                                            ><span class="recommend-order" :class="{ 'is-leading': row.recommendOrder <= 2 }">{{
+                                                row.recommendOrder
+                                            }}</span></template
+                                        ></el-table-column
+                                    >
+                                    <el-table-column label="供应商名称" min-width="220"
+                                        ><template #default="{ row }"
+                                            ><strong class="recommend-supplier">{{ row.supplierName }}</strong></template
+                                        ></el-table-column
+                                    >
+                                    <el-table-column label="推荐来源" min-width="150"
+                                        ><template #default="{ row }"
+                                            ><span class="recommend-source" :data-source="row.recommendSource">{{
+                                                sourceLabel(row.recommendSource)
+                                            }}</span></template
+                                        ></el-table-column
+                                    >
+                                    <el-table-column label="质量等级" width="120" align="center"
+                                        ><template #default="{ row }"
+                                            ><strong class="recommend-quality" :data-level="row.qualityLevel">{{ row.qualityLevel || '—' }}</strong></template
+                                        ></el-table-column
+                                    >
+                                    <el-table-column label="绩效得分" width="130" align="right"
+                                        ><template #default="{ row }"
+                                            ><strong class="recommend-score">{{ row.performanceScore != null ? row.performanceScore.toFixed(1) : '—' }}</strong></template
+                                        ></el-table-column
+                                    >
+                                    <el-table-column label="操作" width="92" align="center"><template #default>—</template></el-table-column>
+                                    <template #empty><div class="empty-copy">暂无推荐结果</div></template>
+                                </el-table>
+                                <footer class="workbench-table-footer">
+                                    <span>共 {{ packageRecommendations.length }} 条</span><span>8 条/页</span
+                                    ><el-pagination :total="packageRecommendations.length" :page-size="8" layout="prev, pager, next" />
+                                </footer>
+                            </template>
                         </section>
                     </main>
 
                     <div v-else class="workbench-empty">请选择左侧工作包</div>
                 </div>
-                <div v-else class="workbench-empty no-packages">当前批次尚未生成工作包</div>
+                <div v-else class="workbench-empty no-packages">
+                    <el-icon class="workbench-empty__icon"><Box /></el-icon>
+                    <p>{{ activeBatch.batchStatus === 'DATA_READY' ? '点击【生成工作包】开始分包' : '暂无工作包数据' }}</p>
+                    <el-button v-if="canPackage" v-auth="'package'" type="primary" round :loading="advancing" @click="handlePackage"
+                        ><el-icon><Box /></el-icon>生成工作包</el-button
+                    >
+                </div>
             </div>
         </template>
 
@@ -412,8 +437,12 @@
                 </div>
             </dl></el-dialog
         >
-        <el-dialog v-model="moveVisible" title="移动零件" width="min(480px, 94vw)"
+        <el-dialog v-model="moveVisible" :title="`移动零件 (${moveParts.length} 个)`" width="min(480px, 94vw)"
             ><el-form label-position="top"
+                ><el-form-item label="已选零件"
+                    ><div class="move-part-list"
+                        ><span v-for="item in moveParts" :key="item.id">{{ item.partDrawingNo }}</span></div
+                    ></el-form-item
                 ><el-form-item label="目标工作包"
                     ><el-select v-model="movePackageId" style="width: 100%"
                         ><el-option
@@ -422,7 +451,8 @@
                             :label="item.packageNo"
                             :value="item.id" /></el-select></el-form-item></el-form
             ><template #footer
-                ><el-button @click="moveVisible = false">取消</el-button><el-button type="primary" @click="submitMove">确认移动</el-button></template
+                ><el-button @click="moveVisible = false">取消</el-button
+                ><el-button type="primary" :loading="moving" @click="submitMove">确认移动</el-button></template
             ></el-dialog
         >
         <el-dialog v-model="manualVisible" title="手工添加供应商" width="min(520px, 94vw)"
@@ -444,10 +474,20 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox, genFileId, type UploadFile, type UploadInstance, type UploadProps, type UploadRawFile } from 'element-plus'
+import {
+    ElMessage,
+    ElMessageBox,
+    ElTable,
+    genFileId,
+    type UploadFile,
+    type UploadInstance,
+    type UploadProps,
+    type UploadRawFile,
+} from 'element-plus'
 import {
     ArrowLeft,
     ArrowRight,
+    Box,
     Cloudy,
     Document,
     Download,
@@ -464,6 +504,7 @@ import type {
     BatchImportResultVO,
     BatchPartVO,
     BatchStatus,
+    BatchStatusOptionVO,
     BatchVO,
     CategoryMasterVO,
     PackageVO,
@@ -486,14 +527,15 @@ const recommendationService = getResourceService('recommendations')
 const supplierService = getResourceService('suppliers')
 const categoryService = getResourceService('categories')
 const query = reactive({ batchNo: '', flowNo: '', batchStatus: undefined as BatchStatus | undefined, operator: '', pageNo: 1, pageSize: 10 })
-const statusOptions = [
-    { value: 'DRAFT', label: '草稿' },
-    { value: 'DATA_READY', label: '数据就绪' },
-    { value: 'PACKAGED', label: '已分包' },
-    { value: 'RECOMMENDED', label: '已推荐' },
-    { value: 'PARTIAL', label: '部分推荐' },
-    { value: 'COMPLETED', label: '已完成' },
-] as const
+const STATUS_LABEL_FALLBACK: Record<BatchStatus, string> = {
+    DRAFT: '草稿',
+    DATA_READY: '数据就绪',
+    PACKAGED: '已分包',
+    RECOMMENDED: '已推荐',
+    PARTIAL: '部分推荐',
+    COMPLETED: '已完成',
+}
+const statusOptions = ref<BatchStatusOptionVO[]>([])
 const batches = ref<BatchVO[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -501,12 +543,15 @@ const saving = ref(false)
 const advancing = ref(false)
 const exporting = ref(false)
 const activeBatch = ref<BatchVO>()
+const workbenchLoading = ref(false)
 const packages = ref<PackageVO[]>([])
-const parts = ref<BatchPartVO[]>([])
-const recommendations = ref<SupplierRecommendationVO[]>([])
+const packageParts = ref<BatchPartVO[]>([])
+const packageRecommendations = ref<SupplierRecommendationVO[]>([])
+const packageDetailLoading = ref(false)
 const suppliers = ref<SupplierVO[]>([])
 const categories = ref<CategoryMasterVO[]>([])
 const selectedPackage = ref<PackageVO>()
+const packageSearchKeyword = ref('')
 const detailTab = ref<'parts' | 'recommendations'>('parts')
 const uploadVisible = ref(false)
 const fetchVisible = ref(false)
@@ -519,21 +564,22 @@ const uploadFile = ref<UploadFile>()
 const uploadForm = reactive({ aircraftModel: '' })
 const fetchFlowNo = ref('')
 const currentPart = ref<BatchPartVO>()
-const movePart = ref<BatchPartVO>()
+const partsTableRef = ref<InstanceType<typeof ElTable>>()
+const selectedParts = ref<BatchPartVO[]>([])
+const moveParts = ref<BatchPartVO[]>([])
+const moving = ref(false)
 const movePackageId = ref('')
 const manualSupplierId = ref('')
 const importResult = ref<BatchImportResultVO>()
 const warningBanner = ref<{ message: string; warnings: RecommendationWarning[] } | null>(null)
-const visibleParts = computed(() => parts.value.filter((item) => item.packageId === selectedPackage.value?.id))
-const visibleRecommendations = computed(() => recommendations.value.filter((item) => item.packageId === selectedPackage.value?.id))
 const availableManualSuppliers = computed(() =>
-    suppliers.value.filter((supplier) => supplier.enabled === 1 && !visibleRecommendations.value.some((item) => item.supplierId === supplier.id))
+    suppliers.value.filter((supplier) => supplier.enabled === 1 && !packageRecommendations.value.some((item) => item.supplierId === supplier.id))
 )
 const canPackage = computed(() => activeBatch.value?.batchStatus === 'DATA_READY')
 const canRecommend = computed(() => activeBatch.value?.batchStatus === 'PACKAGED')
 const canRun = computed(() => !!activeBatch.value && activeBatch.value.batchStatus !== 'DRAFT')
 const lockedBatch = computed(() => !!activeBatch.value && ['RECOMMENDED', 'PARTIAL', 'COMPLETED'].includes(activeBatch.value.batchStatus))
-const statusLabel = (status: BatchStatus) => statusOptions.find((item) => item.value === status)?.label || status
+const statusLabel = (status: BatchStatus) => statusOptions.value.find((item) => item.value === status)?.label || STATUS_LABEL_FALLBACK[status] || status
 const sourceLabel = (source: string) =>
     ({
         HISTORY: '历史供应商',
@@ -545,12 +591,28 @@ const sourceLabel = (source: string) =>
 const recommendStatusLabel = (status: string) =>
     ({ PENDING: '待推荐', RECOMMENDED: '已推荐', PARTIAL: '推荐不足', FAILED: '推荐失败' })[status] || status
 const categoryName = (id: string) => categories.value.find((item) => item.id === id)?.categoryName || id
+const filteredPackages = computed(() => {
+    const keyword = packageSearchKeyword.value.trim().toLowerCase()
+    if (!keyword) return packages.value
+    return packages.value.filter(
+        (item) => item.packageNo.toLowerCase().includes(keyword) || categoryName(item.categoryId).toLowerCase().includes(keyword)
+    )
+})
+const loadStatusOptions = async () => {
+    try {
+        statusOptions.value = await subcontractBatchApi.getStatusOptions()
+    } catch (error: any) {
+        ElMessage.error(error?.message || '获取状态选项失败')
+    }
+}
 const loadBatches = async () => {
     loading.value = true
     try {
         const result = await batchService.page(query)
         batches.value = result.list
         total.value = result.total
+    } catch (error: any) {
+        ElMessage.error(error?.message || '批次列表加载失败')
     } finally {
         loading.value = false
     }
@@ -562,19 +624,28 @@ const resetQuery = () => {
 const enterWorkbench = async (row: BatchVO) => {
     activeBatch.value = { ...row }
     warningBanner.value = null
-    const [packageRows, partRows, recRows, supplierRows, categoryRows] = await Promise.all([
-        packageService.list({ batchId: row.id } as any),
-        partService.list({ batchId: row.id } as any),
-        recommendationService.list({ batchId: row.id } as any),
-        supplierService.list({ enabled: 1 } as any),
-        categoryService.list(),
-    ])
-    packages.value = packageRows
-    parts.value = partRows
-    recommendations.value = recRows
-    suppliers.value = supplierRows
-    categories.value = categoryRows
-    selectedPackage.value = packageRows[0]
+    packages.value = []
+    packageParts.value = []
+    packageRecommendations.value = []
+    selectedPackage.value = undefined
+    packageSearchKeyword.value = ''
+    workbenchLoading.value = true
+    try {
+        const [packageRows, supplierRows, categoryRows] = await Promise.all([
+            packageService.list({ batchId: row.id } as any),
+            supplierService.list({ enabled: 1 } as any),
+            categoryService.list(),
+        ])
+        packages.value = packageRows
+        suppliers.value = supplierRows
+        categories.value = categoryRows
+        if (packageRows[0]) await selectPackage(packageRows[0])
+    } catch (error: any) {
+        ElMessage.error(error?.message || '工作台数据加载失败')
+        activeBatch.value = undefined
+    } finally {
+        workbenchLoading.value = false
+    }
 }
 const leaveWorkbench = () => {
     activeBatch.value = undefined
@@ -582,9 +653,22 @@ const leaveWorkbench = () => {
     warningBanner.value = null
     loadBatches()
 }
-const selectPackage = (item: PackageVO) => {
+const loadPackageDetail = async (packageId: string) => {
+    packageDetailLoading.value = true
+    try {
+        const [partRows, recRows] = await Promise.all([partService.list({ packageId } as any), recommendationService.list({ packageId } as any)])
+        packageParts.value = partRows
+        packageRecommendations.value = recRows
+    } catch (error: any) {
+        ElMessage.error(error?.message || '工作包详情加载失败')
+    } finally {
+        packageDetailLoading.value = false
+    }
+}
+const selectPackage = async (item: PackageVO) => {
     selectedPackage.value = item
     detailTab.value = 'parts'
+    await loadPackageDetail(item.id)
 }
 const handlePackage = async () => {
     if (!activeBatch.value) return
@@ -592,11 +676,17 @@ const handlePackage = async () => {
     try {
         const { packages: packageRows, message } = await subcontractBatchApi.packageBatch(activeBatch.value.id)
         packages.value = packageRows
-        recommendations.value = []
-        selectedPackage.value = packageRows[0]
         activeBatch.value = await batchService.get(activeBatch.value.id)
         warningBanner.value = message ? { message, warnings: [] } : null
+        if (packageRows[0]) await selectPackage(packageRows[0])
+        else {
+            selectedPackage.value = undefined
+            packageParts.value = []
+            packageRecommendations.value = []
+        }
         ElMessage.success('工作包已生成')
+    } catch (error: any) {
+        ElMessage.error(error?.message || '生成工作包失败')
     } finally {
         advancing.value = false
     }
@@ -605,12 +695,19 @@ const handleRecommend = async () => {
     if (!activeBatch.value) return
     advancing.value = true
     try {
-        const { recommendations: recRows, message } = await subcontractBatchApi.recommendBatch(activeBatch.value.id)
-        recommendations.value = recRows
-        const detail = await batchService.get(activeBatch.value.id)
+        const { message } = await subcontractBatchApi.recommendBatch(activeBatch.value.id)
+        const [packageRows, detail] = await Promise.all([
+            packageService.list({ batchId: activeBatch.value.id } as any),
+            batchService.get(activeBatch.value.id),
+        ])
+        packages.value = packageRows
         activeBatch.value = detail
         warningBanner.value = message ? { message, warnings: [] } : null
+        const refreshed = packageRows.find((item) => item.id === selectedPackage.value?.id)
+        if (refreshed) await selectPackage(refreshed)
         ElMessage.success(detail.batchStatus === 'PARTIAL' ? '推荐已生成，但存在数量缺口' : '供应商推荐已生成')
+    } catch (error: any) {
+        ElMessage.error(error?.message || '生成供应商推荐失败')
     } finally {
         advancing.value = false
     }
@@ -620,27 +717,33 @@ const handleRun = async () => {
     advancing.value = true
     try {
         const result = await subcontractBatchApi.runBatch(activeBatch.value.id)
-        const [packageRows, recRows] = await Promise.all([
-            packageService.list({ batchId: activeBatch.value.id } as any),
-            recommendationService.list({ batchId: activeBatch.value.id } as any),
-        ])
+        const packageRows = await packageService.list({ batchId: activeBatch.value.id } as any)
         packages.value = packageRows
-        recommendations.value = recRows
-        selectedPackage.value = packageRows[0]
         activeBatch.value = { ...activeBatch.value, batchStatus: result.batchStatus, totalPackageCount: result.packageCount }
         warningBanner.value = result.hasWarning
             ? { message: result.warnings.map((item) => item.message).join('；') || '存在供应商数量缺口', warnings: result.warnings }
             : null
+        if (packageRows[0]) await selectPackage(packageRows[0])
         ElMessage.success(result.hasWarning ? '编排完成，但存在数量缺口' : '编排已完成')
+    } catch (error: any) {
+        ElMessage.error(error?.message || '一键编排失败')
     } finally {
         advancing.value = false
     }
 }
 const removeBatch = async (row: BatchVO) => {
-    await ElMessageBox.confirm(`确认删除批次 ${row.batchNo}？`, '删除批次', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
-    await batchService.remove(row.id)
-    ElMessage.success('批次已删除')
-    loadBatches()
+    try {
+        await ElMessageBox.confirm(`确认删除批次 ${row.batchNo}？`, '删除批次', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+    } catch {
+        return
+    }
+    try {
+        await batchService.remove(row.id)
+        ElMessage.success('批次已删除')
+        loadBatches()
+    } catch (error: any) {
+        ElMessage.error(error?.message || '删除失败')
+    }
 }
 const openUpload = () => {
     uploadFile.value = undefined
@@ -667,6 +770,8 @@ const submitUpload = async () => {
         if (result.errorCount > 0) importResultVisible.value = true
         else ElMessage.success(`导入完成：${result.totalRows} 行中 ${result.successCount} 行成功`)
         loadBatches()
+    } catch (error: any) {
+        ElMessage.error(error?.message || '上传失败')
     } finally {
         saving.value = false
     }
@@ -681,6 +786,8 @@ const submitFetch = async () => {
         if (result.errorCount > 0) importResultVisible.value = true
         else ElMessage.success(`抓取完成：${result.totalRows} 行中 ${result.successCount} 行成功`)
         loadBatches()
+    } catch (error: any) {
+        ElMessage.error(error?.message || '抓取失败')
     } finally {
         saving.value = false
     }
@@ -695,6 +802,8 @@ const exportResult = async () => {
         await subcontractBatchApi.exportBatchResult(activeBatch.value.id, activeBatch.value.batchNo)
         activeBatch.value = await batchService.get(activeBatch.value.id)
         ElMessage.success('结果已导出')
+    } catch (error: any) {
+        ElMessage.error(error?.message || '导出失败')
     } finally {
         exporting.value = false
     }
@@ -703,39 +812,64 @@ const showPart = (row: BatchPartVO) => {
     currentPart.value = row
     partVisible.value = true
 }
+const handlePartSelectionChange = (rows: BatchPartVO[]) => {
+    selectedParts.value = rows
+}
+const clearPartSelection = () => {
+    partsTableRef.value?.clearSelection()
+}
 const openMove = (row: BatchPartVO) => {
-    movePart.value = row
+    moveParts.value = [row]
+    movePackageId.value = ''
+    moveVisible.value = true
+}
+const openBatchMove = () => {
+    moveParts.value = [...selectedParts.value]
     movePackageId.value = ''
     moveVisible.value = true
 }
 const submitMove = async () => {
-    if (!movePart.value || !movePackageId.value) return ElMessage.warning('请选择目标工作包')
-    const updated = { ...movePart.value, packageId: movePackageId.value }
-    await partService.update(updated)
-    const index = parts.value.findIndex((item) => item.id === updated.id)
-    if (index >= 0) parts.value[index] = updated
-    moveVisible.value = false
-    ElMessage.success('零件已移动')
+    if (!moveParts.value.length || !movePackageId.value) return ElMessage.warning('请选择目标工作包')
+    moving.value = true
+    try {
+        await Promise.all(moveParts.value.map((part) => partService.update({ ...part, packageId: movePackageId.value })))
+        moveVisible.value = false
+        clearPartSelection()
+        ElMessage.success(`已移动 ${moveParts.value.length} 个零件`)
+        if (activeBatch.value) packages.value = await packageService.list({ batchId: activeBatch.value.id } as any)
+        if (selectedPackage.value) await loadPackageDetail(selectedPackage.value.id)
+    } catch (error: any) {
+        ElMessage.error(error?.message || '移动失败')
+    } finally {
+        moving.value = false
+    }
 }
 const addManualSupplier = async () => {
     const supplier = suppliers.value.find((item) => item.id === manualSupplierId.value)
     if (!supplier || !activeBatch.value || !selectedPackage.value) return ElMessage.warning('请选择供应商')
-    await recommendationService.create({
-        packageId: selectedPackage.value.id,
-        batchId: activeBatch.value.id,
-        supplierId: supplier.id,
-        supplierName: supplier.supplierName,
-        recommendOrder: visibleRecommendations.value.length + 1,
-        recommendSource: 'ALL_CATEGORY',
-        qualityLevel: '普通',
-        performanceScore: 0,
-    })
-    recommendations.value = await recommendationService.list({ batchId: activeBatch.value.id } as any)
-    manualSupplierId.value = ''
-    manualVisible.value = false
-    ElMessage.success('供应商已添加')
+    try {
+        await recommendationService.create({
+            packageId: selectedPackage.value.id,
+            batchId: activeBatch.value.id,
+            supplierId: supplier.id,
+            supplierName: supplier.supplierName,
+            recommendOrder: packageRecommendations.value.length + 1,
+            recommendSource: 'ALL_CATEGORY',
+            qualityLevel: '普通',
+            performanceScore: 0,
+        })
+        await loadPackageDetail(selectedPackage.value.id)
+        manualSupplierId.value = ''
+        manualVisible.value = false
+        ElMessage.success('供应商已添加')
+    } catch (error: any) {
+        ElMessage.error(error?.message || '添加供应商失败')
+    }
 }
-onMounted(loadBatches)
+onMounted(() => {
+    loadStatusOptions()
+    loadBatches()
+})
 </script>
 
 
@@ -1024,6 +1158,8 @@ onMounted(loadBatches)
     min-height: 720px;
 }
 .package-sidebar {
+    display: flex;
+    flex-direction: column;
     border-right: 1px solid #ebebeb;
     background: #fff;
 }
@@ -1034,10 +1170,19 @@ onMounted(loadBatches)
     font-size: 13px;
     font-weight: 650;
 }
+.package-sidebar__search {
+    padding: 12px 14px 0;
+}
+.package-sidebar__search :deep(.el-input__wrapper) {
+    border-radius: 8px;
+}
 .package-list {
     display: grid;
+    align-content: start;
     gap: 9px;
+    max-height: calc(100vh - 320px);
     padding: 14px;
+    overflow-y: auto;
 }
 .package-card {
     display: grid;
@@ -1140,6 +1285,9 @@ onMounted(loadBatches)
     border: 1px solid #dedee1;
     border-radius: 16px;
     background: #fff;
+}
+.detail-skeleton {
+    padding: 24px;
 }
 .package-overview__title {
     gap: 12px;
@@ -1255,6 +1403,33 @@ onMounted(loadBatches)
     background: #fff3e0;
     color: #b54708;
     font-size: 12px;
+}
+.batch-move-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    border-radius: 10px;
+    background: #e8f1fb;
+    color: #0055aa;
+    font-size: 13px;
+    font-weight: 500;
+}
+.move-part-list {
+    display: grid;
+    gap: 4px;
+    max-height: 160px;
+    padding: 10px 12px;
+    overflow-y: auto;
+    border-radius: 8px;
+    background: #f5f5f7;
+    color: #555;
+    font:
+        12px ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Consolas,
+        monospace;
 }
 .batch-warning-banner {
     align-items: flex-start;
@@ -1426,6 +1601,21 @@ onMounted(loadBatches)
 }
 .no-packages {
     min-height: 700px;
+    gap: 16px;
+}
+.no-packages .workbench-empty__icon {
+    font-size: 48px;
+    color: #d0d0d0;
+}
+.no-packages p {
+    margin: 0;
+    color: #7a7a7a;
+    font-size: 15px;
+    font-weight: 500;
+}
+.no-packages .el-button {
+    min-height: 40px;
+    padding-inline: 22px;
 }
 
 @media (max-width: 1100px) {

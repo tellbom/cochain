@@ -1,5 +1,6 @@
 import type {
     BatchImportResultVO,
+    BatchStatusOptionVO,
     EntityId,
     OrchestrationResultVO,
     PackageVO,
@@ -50,5 +51,9 @@ export const subcontractBatchApi = {
     async exportBatchResult(batchId: EntityId, batchNo: string): Promise<void> {
         const response = await client.get<Blob>(`/api/subcontract/batch/${encodeURIComponent(batchId)}/export`, { responseType: 'blob' })
         await downloadBlobResponse(response, `${batchNo || batchId}-供应商推荐清单.xlsx`)
+    },
+
+    async getStatusOptions(): Promise<BatchStatusOptionVO[]> {
+        return unwrap((await client.get<Result<BatchStatusOptionVO[]>>('/api/subcontract/batch/status-options')).data)
     },
 }
